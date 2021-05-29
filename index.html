@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <!-- Responsive -->
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+        <!-- Title -->
+        <title>Logs &amp; Sorcery</title>
+
+        <!-- Meta Tags requred for Progressive Web App -->
+        <meta name= "apple-mobile-web-app-status-bar" content="#aa7700">
+        <meta name="theme-color" content="black">
+
+        <!-- Manifest File link -->
+        <link rel="manifest" href="manifest.json">
+
+        <link rel="preconnect" href="https://fonts.gstatic.com">
+        <link href="https://fonts.googleapis.com/css2?family=Fira+Code&family=Roboto&display=swap" rel="stylesheet">
+        <link rel="stylesheet" href="style.css">
+    </head>
+
+    <body>
+        <h1>Logs &amp; Sorcery</h1>
+        <div class="main">
+            <div id="file-input">DROP LOG FILE HERE</div>
+        </div>
+        <div id="output" class="hidden">
+            <h2>Info</h2>
+            <div class="tag-list" id="info">
+                <span class="game-info" id="version"></span>
+                <span class="game-info" id="build"></span>
+                <span class="game-info" id="platform"></span>
+                <span class="game-info" id="hmd"></span>
+                <span class="game-info" id="model"></span>
+            </div>
+            <h2>Mods Installed</h2>
+            <div class="tag-list" id="mods"></div>
+            <h2>Mod Load Errors</h2>
+            <div id="load-errors"></div>
+            <h2>Events</h2>
+            <div id="events"></div>
+            <h2>Exception Analysis</h2>
+            <div id="exceptions"><i>Coming soon!</i>
+                <!-- <canvas id="exception-types" width="200" height="200"></canvas> -->
+                <!-- <canvas id="exception-mods" width="200" height="200"></canvas> -->
+            </div>
+
+        </div>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@3.3.0/dist/chart.min.js"></script>
+        <script src="index.js"></script>
+        <script>
+            window.addEventListener('load', () => {
+                registerSW();
+            });
+
+            // Register the Service Worker
+            async function registerSW() {
+                if ('serviceWorker' in navigator) {
+                    try {
+                        await navigator
+                            .serviceWorker
+                            .register('service-worker.js');
+                    }
+                    catch (e) {
+                        console.log('SW registration failed', e);
+                    }
+                }
+            }  </script>
+    </body>
+</html>

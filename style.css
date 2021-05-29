@@ -1,0 +1,184 @@
+body {
+    background-color: #333344;
+    color: #dddddd;
+    font-family: "Roboto", sans-serif;
+    text-align: center;
+}
+
+main {
+    width: 80%;
+    margin: auto;
+}
+
+#file-input {
+    border: 5px dashed #bbbbbb;
+    color: #999999;
+    letter-spacing: 5px;
+    padding: 50px 30px;
+    width: 50%;
+    margin: auto;
+    font-size: 30px;
+    border-radius: 5px;
+    transition: border-color 0.2s ease-in-out;
+    margin-bottom: 30px;
+}
+
+.dragging {
+    border-color: white !important;
+}
+
+.tag-list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.game-info {
+    padding: 5px;
+    margin: 5px;
+    border-radius: 5px;
+    background-color: #444455;
+    display: none;
+}
+
+.game-info::before {
+    color: #aaaaaa;
+    border-right: 1px solid #666666;
+    padding-right: 5px;
+    margin-right: 5px;
+}
+
+#version::before { content: "Version"; }
+#build::before { content: "Build"; }
+#platform::before { content: "Platform"; }
+#hmd::before { content: "HMD Type"; }
+#model::before { content: "HMD Model"; }
+
+#exceptions {
+    display: flex;
+    justify-content: space-around;
+}
+
+canvas {
+    max-width: 40%;
+    display: inline-block;
+    max-height: 400px;
+}
+
+.mod {
+    display: inline-block;
+    padding: 5px;
+    margin: 5px;
+    border-radius: 5px;
+    background-color: #444455;
+}
+
+.load-error-count {
+    padding: 5px;
+    background-color: #555566;
+    border-radius: 5px;
+    margin-right: 10px;
+}
+
+.load-error-name {
+    transition: background-color 0.2s ease-in-out;
+    margin: 0;
+    user-select: none;
+    cursor: pointer;
+    padding: 10px 0;
+}
+.load-error-name:hover {
+    background-color: #4a4a5a;
+}
+
+.load-error-list {
+    font-family: "Fira Code", monospace;
+    max-height: 0;
+    transition: max-height 0.2s ease-in-out;
+    overflow-y: hidden;
+}
+
+.load-error {
+    display: flex;
+    flex-direction: column;
+    display: block;
+    width: 80%;
+    margin: auto;
+    padding-top: 10px;
+    background-color: #444455;
+    color: #bbbbbb;
+    cursor: pointer;
+    user-select: none;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.load-error:hover {
+    background-color: #4a4a5a;
+}
+
+.load-error:not(:first-of-type) {
+    border-top: 1px solid #555566;
+}
+
+.load-error:first-of-type {
+    border-top-right-radius: 10px;
+    border-top-left-radius: 10px;
+}
+.load-error:last-of-type {
+    border-bottom-right-radius: 10px;
+    border-bottom-left-radius: 10px;
+}
+.load-error:last-of-type .load-error-error {
+    border-bottom-right-radius: 10px;
+    border-bottom-left-radius: 10px;
+}
+
+.load-error-file {
+    padding-bottom: 10px;
+    display: block;
+    font-size: 15px;
+}
+
+.load-error-error {
+    display: block;
+    user-select: text;
+    width: 100%;
+    padding: 0 10px;
+    margin-top: 0;
+    box-sizing: border-box;
+    transition: max-height 0.2s ease-in-out, margin 0.2s ease-in-out, padding 0.2s ease-in-out, background-color 0.2s ease-in-out;;
+    max-height: 0;
+    overflow-y: hidden;
+}
+
+.expanded {
+    background-color: #555566;
+    padding: 10px;
+    max-height: 200px;
+}
+
+.category-expanded {
+    max-height: inherit;
+    margin: 10px 0;
+}
+
+.hidden { display: none; }
+
+#events {
+    width: 60%;
+    margin: auto;
+}
+
+.event {
+    padding: 5px;
+    user-select: none;
+    cursor: pointer;
+}
+
+.exception {
+    background-color: #883333;
+}
+
+.global {
+    background-color: #338833;
+}

@@ -1,0 +1,17 @@
+{
+    "name": "Logs & Sorcery",
+    "short_name": "Log Analyser",
+    "start_url": "index.html",
+    "display": "standalone",
+    "background_color": "#333344",
+    "theme_color": "black",
+    "scope": ".",
+    "description": "Analyse B&S logs",
+    "icons":[
+        {
+            "src": "images/logo-256.png",
+            "sizes": "256x256",
+            "type": "image/png"
+        }
+    ]
+}
