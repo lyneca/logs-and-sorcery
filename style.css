@@ -8,6 +8,7 @@ body {
 main {
     width: 80%;
     margin: auto;
+    margin-bottom: 20px;
 }
 
 #file-input {
@@ -18,7 +19,7 @@ main {
     width: 50%;
     margin: auto;
     font-size: 30px;
-    border-radius: 5px;
+    border-radius: 35px;
     transition: border-color 0.2s ease-in-out;
     margin-bottom: 30px;
 }
@@ -102,9 +103,10 @@ canvas {
     display: flex;
     flex-direction: column;
     display: block;
-    width: 80%;
+    width: 60%;
     margin: auto;
     padding-top: 10px;
+    box-sizing: border-box;
     background-color: #444455;
     color: #bbbbbb;
     cursor: pointer;
@@ -166,19 +168,116 @@ canvas {
 
 #events {
     width: 60%;
+    box-sizing: border-box;
     margin: auto;
 }
 
 .event {
-    padding: 5px;
+    padding: 10px;
+    margin: 10px 0;
     user-select: none;
-    cursor: pointer;
+    color: rgba(255, 255, 255, 0.8);
+    box-shadow: 2px 2px 5px 5px rgba(0, 0, 0, 0.1);
+}
+
+.global > .event-title {
+    font-size: 20px;
+    width: 60%;
+    margin: auto;
+}
+
+.exception > .event-title {
+    font-family: "Fira Code", monospace;
+}
+
+.exception-title {
+    padding-top: 5px;
+    display: inline-block;
+    font-style: italic;
 }
 
 .exception {
     background-color: #883333;
+    cursor: pointer;
+    padding: 10px;
+    position: relative;
+}
+
+.event:first-of-type {
+    border-top-right-radius: 10px;
+    border-top-left-radius: 10px;
+}
+
+.event:last-of-type {
+    border-bottom-right-radius: 10px;
+    border-bottom-left-radius: 10px;
 }
 
 .global {
     background-color: #338833;
+}
+
+.exception-lines {
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    background-color: #662222;
+    box-shadow: 0 0 4px 4px rgba(0, 0, 0, 0.1) inset;
+    border-radius: 5px;
+    max-width: 90%;
+    margin: auto;
+    padding: 10px;
+}
+
+.exception-line-location, .exception-line-filename, .exception-line-line {
+    font-family: "Fira Code", monospace;
+}
+
+span.prefix {
+    font-family: "Fira Code", monospace;
+}
+
+.exception-line {
+    display: block;
+    text-align: left;
+}
+
+.dim {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.arg {
+    display: inline-block;
+}
+
+.event-hidden {
+    display: none;
+}
+
+.event-details {
+    margin-top: 10px;
+}
+
+.count {
+    left: 0px;
+    position: absolute;
+    padding: 2px 10px;
+}
+
+p {
+    margin: 0;
+}
+
+pre {
+    padding: 20px 20px;
+    font-size: 20px;
+    border-radius: 20px;
+    box-shadow: 0 0 5px 5px rgba(0, 0, 0, 0.1) inset;
+    display: inline-block;
+    background-color: rgba(0, 0, 0, 0.3);
+}
+
+code {
+    padding: 3px;
+    border-radius: 3px;
+    background-color: rgba(0, 0, 0, 0.3);
 }
