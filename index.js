@@ -158,6 +158,9 @@ class Block {
             checkLine(line, /Game version: (?<version>.+)/, groups => {
                 gameInfo.version = groups.version;
             });
+            checkLine(line, /Initialize engine version: (?<version>.+)/, groups => {
+                gameInfo.build = groups.version;
+            });
             checkLine(line, /Device model : (?<model>.+)/, groups => {
                 gameInfo.hmdModel = groups.model;
                 if (groups.model == "Miramar")
