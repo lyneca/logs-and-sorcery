@@ -36,8 +36,8 @@ class GameInfo {
     version = "";
     build = "";
     platform = "Unknown (pirated)?";
-    hmd = "";
-    hmdModel = "";
+    hmd = "Temporarily Unavailable";
+    hmdModel = "Temporarily Unavailable";
     mods = [];
     events = [];
     loadErrors = {};
@@ -185,7 +185,7 @@ class Block {
                             groups.line));
                 }
             });
-            checkLine(line, /loadMods : Cannot read file (?<file>(?<modFolder>.+?)\\.+) \((?<error>.+)\)/, groups => {
+            checkLine(line, /LoadJson : Cannot read file (?<file>(?<modFolder>.+?)\\.+) \((?<error>.+)\)/, groups => {
                 if (!gameInfo.loadErrors[groups.modFolder]) {
                     gameInfo.loadErrors[groups.modFolder] = [];
                 }
