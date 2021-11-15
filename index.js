@@ -36,8 +36,8 @@ class GameInfo {
     version = "";
     build = "";
     platform = "Unknown (pirated)?";
-    hmd = "";
-    hmdModel = "";
+    hmd = "Temporarily Unavailable";
+    hmdModel = "Temporarily Unavailable";
     mods = [];
     events = [];
     loadErrors = {};
@@ -155,9 +155,11 @@ class Block {
                 this.filename = groups.filename;
                 this.line = groups.line;
             });
-            checkLine(line, /Game version: (?<version>.+) \[(?<build>.+)\]/, groups => {
+            checkLine(line, /Game version: (?<version>.+)/, groups => {
                 gameInfo.version = groups.version;
-                gameInfo.build = groups.build;
+            });
+            checkLine(line, /Initialize engine version: (?<version>.+)/, groups => {
+                gameInfo.build = groups.version;
             });
             checkLine(line, /Device model : (?<model>.+)/, groups => {
                 gameInfo.hmdModel = groups.model;
@@ -167,7 +169,7 @@ class Block {
             checkLine(line, /LoadedDeviceName : (?<device>.+)/, groups => {
                 gameInfo.hmd = groups.device;
             });
-            checkLine(line, /JSON loader - Found custom file: (?<modFolder>.+?)\\/, groups => {
+            checkLine(line, /JSON loader - Loading custom file: (?<modFolder>.+?)\\/, groups => {
                 gameInfo.mods.push(groups.modFolder);
                 gameInfo.mods = [...new Set(gameInfo.mods)];
             });
@@ -186,7 +188,7 @@ class Block {
                             groups.line));
                 }
             });
-            checkLine(line, /loadMods : Cannot read file (?<file>(?<modFolder>.+?)\\.+) \((?<error>.+)\)/, groups => {
+            checkLine(line, /LoadJson : Cannot read file (?<file>(?<modFolder>.+?)\\.+) \((?<error>.+)\)/, groups => {
                 if (!gameInfo.loadErrors[groups.modFolder]) {
                     gameInfo.loadErrors[groups.modFolder] = [];
                 }
