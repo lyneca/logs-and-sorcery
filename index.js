@@ -155,9 +155,8 @@ class Block {
                 this.filename = groups.filename;
                 this.line = groups.line;
             });
-            checkLine(line, /Game version: (?<version>.+) \[(?<build>.+)\]/, groups => {
+            checkLine(line, /Game version: (?<version>.+)/, groups => {
                 gameInfo.version = groups.version;
-                gameInfo.build = groups.build;
             });
             checkLine(line, /Device model : (?<model>.+)/, groups => {
                 gameInfo.hmdModel = groups.model;
@@ -167,7 +166,7 @@ class Block {
             checkLine(line, /LoadedDeviceName : (?<device>.+)/, groups => {
                 gameInfo.hmd = groups.device;
             });
-            checkLine(line, /JSON loader - Found custom file: (?<modFolder>.+?)\\/, groups => {
+            checkLine(line, /JSON loader - Loading custom file: (?<modFolder>.+?)\\/, groups => {
                 gameInfo.mods.push(groups.modFolder);
                 gameInfo.mods = [...new Set(gameInfo.mods)];
             });
