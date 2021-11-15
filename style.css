@@ -50,7 +50,7 @@ main {
 }
 
 #version::before { content: "Version"; }
-#build::before { content: "Build"; }
+#build::before { content: "Unity Version"; }
 #platform::before { content: "Platform"; }
 #hmd::before { content: "HMD Type"; }
 #model::before { content: "HMD Model"; }
