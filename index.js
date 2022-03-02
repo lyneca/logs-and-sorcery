@@ -1,4 +1,5 @@
 const fileInput = document.querySelector("#file-input");
+const fileClickInput = document.getElementById("file-click-input");
 fileInput.addEventListener("dragenter", (_) => {
     fileInput.classList.add("dragging");
 });
@@ -13,6 +14,13 @@ fileInput.addEventListener("drop", e => {
     e.preventDefault();
     e.stopPropagation();
     loadFile(e.dataTransfer.files[0])
+});
+
+fileInput.addEventListener("click", e => {
+    fileClickInput.click();
+});
+fileClickInput.addEventListener("change", e => {
+    loadFile(e.target.files[0])
 });
 
 function escapeHTML(str){
@@ -41,6 +49,8 @@ class GameInfo {
     mods = [];
     events = [];
     loadErrors = {};
+    incompatibleMods = {};
+    missingAddresses = []
     missingCatalogData = [];
 }
 
@@ -53,10 +63,26 @@ if (match) {
 
 let gameInfo = new GameInfo();
 
+class MissingAddressError {
+    constructor(id, object, type) {
+        this.id = id;
+        this.object = object;
+        this.type = type;
+    }
+}
+
 class MissingDataError {
     constructor(id, type) {
         this.id = id;
         this.type = type;
+    }
+}
+
+class IncompatibleMod {
+    constructor(mod, version, minVersion) {
+        this.mod = mod;
+        this.version = version;
+        this.minVersion = minVersion;
     }
 }
 
@@ -153,10 +179,10 @@ class Block {
         let exceptionError = "";
         let exceptionLines = [];
         for (let line of string.split("\r\n")) {
-            checkLine(line, /Mono path\[0\] = '.+Oculus\/Software.+/, () => {
+            checkLine(line, /Mono path\[0\] = '.+Oculus\/Software.+/i, () => {
                 gameInfo.platform = "Oculus";
             });
-            checkLine(line, /Mono path\[0\] = '.+steamapps\/common.+/, () => {
+            checkLine(line, /Mono path\[0\] = '.+steamapps\/common.+/i, () => {
                 gameInfo.platform = "Steam";
             });
             checkLine(line, /\(Filename: (?<filename>.+)? Line: (?<line>\d+)?\)/, groups => {
@@ -174,7 +200,13 @@ class Block {
                 if (groups.model == "Miramar")
                     gameInfo.hmdModel += " (Quest 2)";
             });
+            checkLine(line, /HeadDevice: (?<model>.+)/, groups => {
+                gameInfo.hmdModel = groups.model;
+            });
             checkLine(line, /LoadedDeviceName : (?<device>.+)/, groups => {
+                gameInfo.hmd = groups.device;
+            });
+            checkLine(line, /Loader: (?<device>.+) \|/, groups => {
                 gameInfo.hmd = groups.device;
             });
             checkLine(line, /JSON loader - Loading custom file: (?<modFolder>.+?)\\/, groups => {
@@ -196,11 +228,17 @@ class Block {
                             groups.line));
                 }
             });
+            checkLine(line, /Mod (?<mod>.+) for \((?<version>.+)\) is not compatible with current min mod version (?<minVersion>.+)/, groups => {
+                gameInfo.incompatibleMods[groups.mod] = new IncompatibleMod(groups.mod, groups.version, groups.minVersion);
+            });
             checkLine(line, /LoadJson : Cannot read file (?<file>(?<modFolder>.+?)\\.+) \((?<error>.+)\)/, groups => {
                 if (!gameInfo.loadErrors[groups.modFolder]) {
                     gameInfo.loadErrors[groups.modFolder] = [];
                 }
                 gameInfo.loadErrors[groups.modFolder].push(new LoadError(groups.file, groups.error));
+            });
+            checkLine(line, /Address \[(?<id>.+?)\] not found for object \[(?<object>.+?) \((?<type>.+)\)\]/, groups => {
+                gameInfo.missingAddresses.push(new MissingAddressError(groups.id, groups.object, groups.type));
             });
             checkLine(line, /Data \[(?<id>.+?) \| -?\d+\] of type \[(?<dataType>.+?)\] cannot be found in catalog/, groups => {
                 if (groups.id != "null")
@@ -263,7 +301,6 @@ function analyseFile(log) {
         blocks.push(new Block(block));
     }
     checkExceptionDupes();
-    console.log(gameInfo);
     display();
 }
 
@@ -279,8 +316,10 @@ function display() {
     document.getElementById("output").classList.remove("hidden");
     displayInfo();
     displayMods();
+    displayOldMods();
     displayLoadErrors();
     displayMissingCatalogData();
+    displayMissingAddresses();
     displayExceptions();
     displayEvents();
 }
@@ -298,6 +337,12 @@ function displayMods() {
     ).join('');
 }
 
+function displayOldMods() {
+    document.querySelector('#incompatible-mods').innerHTML = Object.values(gameInfo.incompatibleMods).map(
+        data => `<div class="incompatible-mod missing-data-item">${data.mod}<span class="dim normal line-left">mod v${data.version}, needs v${data.minVersion}</span></div>`
+    ).join('');
+}
+
 function displayLoadErrors() {
     document.querySelector('#load-errors').innerHTML = Object.keys(gameInfo.loadErrors).map(
         key => `<div class="load-error-category">
@@ -311,10 +356,18 @@ function displayLoadErrors() {
     ).join('');
 }
 
+function displayMissingAddresses() {
+    document.querySelector('#missing-addresses').innerHTML = "<tr><th>Address</th><th>Catalog ID</th><th>Type</th></tr>" + 
+        gameInfo.missingAddresses.map(
+            data => `<tr class="missing-address-row"><td class="code">${data.id}</td><td class="dim code">${data.object}</td><td class="dim code">${data.type}</td></tr>`
+        ).join('');
+}
+
 function displayMissingCatalogData() {
-    document.querySelector('#missing-data').innerHTML = gameInfo.missingCatalogData.map(
-        data => `<div class="missing-data-item">${data.id}<span class="dim normal line-left">${data.type}</span></div>`
-    ).join('');
+    document.querySelector('#missing-data').innerHTML = "<tr><th>Catalog ID</th><th>Type</th></tr>" + 
+        gameInfo.missingCatalogData.map(
+            data => `<tr><td class="code">${data.id}</td><td class="code dim">${data.type}</td></tr>`
+        ).join('');
 }
 
 function displayExceptions() { }

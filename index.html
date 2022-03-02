@@ -16,12 +16,15 @@
         <!-- Manifest File link -->
         <link rel="manifest" href="manifest.json">
 
-        <link rel="preconnect" href="https://fonts.gstatic.com">
-        <link href="https://fonts.googleapis.com/css2?family=Fira+Code&family=Roboto&display=swap" rel="stylesheet">
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300&family=Roboto&display=swap" rel="stylesheet"> 
         <link rel="stylesheet" href="style.css">
+        <link rel="stylesheet" href="hint.css">
     </head>
 
     <body>
+        <input type="file" id="file-click-input" style="position:fixed;top:-1000px"></input>
         <h1>Logs &amp; Sorcery</h1>
         <main>
             <div id="file-input">DROP LOG FILE HERE</div>
@@ -31,6 +34,8 @@
                 <p>or</p>
                 <pre>C:\Users\[your username]\AppData\LocalLow\WarpFrog\BladeAndSorcery</pre>
                 <p>Go to that folder in your file explorer, and drag the file <code>Player.log</code> into the box above.</p>
+                <br>
+                <p><em>Note: Log files are overwritten every time you run the game.</em></p>
             </div>
         </main>
         <div id="output" class="hidden">
@@ -50,15 +55,55 @@
             <div class="tag-list" id="mods"></div>
             </section>
             <section>
-            <h2>Mod Load Errors</h2>
+            <h2>Incompatible Mods
+                <div class="help-tip">
+                    <p>Checks manifest.json. Minimum game mod version must be matched by mod.</p>
+                </div>
+            </h2>
+            <div id="incompatible-mods"></div>
+            </section>
+            <section>
+            <h2>Mod Load Errors
+                <div class="help-tip">
+                    <p>List of mod JSON files that failed to load, often due to not being properly updated.</p>
+                </div>
+            </h2>
             <div id="load-errors"></div>
             </section>
             <section>
-            <h2>Missing Data Errors</h2>
-            <div id="missing-data"></div>
+            <h2>Missing Data Errors
+                <div class="help-tip">
+                    <p>
+                        Shows JSON Catalog data (such as effects, spells, items) that could not be found.
+                        <br><br>
+                        These are likely issues with either your installation or the mod itself.
+                    </p>
+                </div>
+            </h2>
+            <div class="table-wrapper">
+                <table id="missing-data"></table>
+            </div>
             </section>
             <section>
-            <h2>Events</h2>
+            <h2>Missing Addresses
+                <div class="help-tip">
+                    <p>
+                        Shows addresses referenced by JSON files that could not be found.
+                        <br><br>
+                        This is almost always an issue with the mod itself - perhaps references to unused items/effects?
+                    </p>
+                </div>
+            </h2>
+            <div class="table-wrapper">
+                <table id="missing-addresses"></table>
+            </div>
+            </section>
+            <section>
+            <h2>Events
+                <div class="help-tip">
+                    <p>A list of notable game events and exceptions that occurred in this log session.</p>
+                </div>
+            </h2>
             <div id="events"></div>
             </section>
 

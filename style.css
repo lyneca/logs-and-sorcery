@@ -5,6 +5,10 @@ body {
     text-align: center;
 }
 
+h2 {
+    position: relative;
+}
+
 main {
     width: 80%;
     margin: auto;
@@ -13,6 +17,7 @@ main {
 
 #file-input {
     border: 5px dashed #bbbbbb;
+    cursor: pointer;
     color: #999999;
     letter-spacing: 5px;
     padding: 50px 30px;
@@ -20,8 +25,13 @@ main {
     margin: auto;
     font-size: 30px;
     border-radius: 35px;
-    transition: border-color 0.2s ease-in-out;
+    transition: border-color 0.2s ease-in-out, color 0.2s ease-in-out;
     margin-bottom: 30px;
+}
+
+#file-input:hover {
+    border-color: white !important;
+    color: #dddddd !important;
 }
 
 .dragging {
@@ -287,10 +297,42 @@ span.prefix {
     padding: 2px 10px;
 }
 
+.table-wrapper {
+    width: 80%;
+    margin: auto;
+    text-align: left;
+    border-radius: 10px;
+    box-shadow: 0 0 10px 5px rgba(0, 0, 0, 0.1);
+    padding: 10px;
+}
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    height: 100%;
+}
+
+tr {
+    padding: 10px;
+}
+tr:not(:last-of-type) td {
+    border-bottom: 1px solid #999999;
+}
+th {
+    border-bottom: 2px solid #bbbbbb;
+    font-weight: normal;
+    padding: 5px;
+}
+td {
+    padding: 5px;
+}
 p {
     margin: 0;
 }
 
+pre, code, .code {
+    font-family: "Fira Code", monospace;
+}
 pre {
     padding: 20px 20px;
     font-size: 20px;
