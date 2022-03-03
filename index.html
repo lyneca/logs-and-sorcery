@@ -37,96 +37,98 @@
                 <br>
                 <p><em>Note: Log files are overwritten every time you run the game.</em></p>
             </div>
+            <div id="output" class="hidden">
+                <hr>
+                <section>
+                    <h2>Info</h2>
+                    <div class="tag-list" id="info">
+                        <span class="game-info" id="version"></span>
+                        <span class="game-info" id="build"></span>
+                        <span class="game-info" id="platform"></span>
+                        <span class="game-info" id="hmd"></span>
+                        <span class="game-info" id="model"></span>
+                        <span class="game-info" id="renderer"></span>
+                        <span class="game-info" id="vram"></span>
+                        <span class="game-info" id="driver"></span>
+                    </div>
+                </section>
+                <section>
+                    <h2>Mods Installed</h2>
+                    <div class="tag-list" id="mods"></div>
+                </section>
+                <section>
+                    <h2>Incompatible Mods
+                        <div class="help-tip">
+                            <p>Checks manifest.json. Minimum game mod version must be matched by mod.</p>
+                        </div>
+                    </h2>
+                    <div id="incompatible-mods"></div>
+                </section>
+                <section>
+                    <h2>Mod Load Errors
+                        <div class="help-tip">
+                            <p>List of mod JSON files that failed to load, often due to not being properly updated.</p>
+                        </div>
+                    </h2>
+                    <div id="load-errors"></div>
+                </section>
+                <section>
+                    <h2>Missing Data Errors
+                        <div class="help-tip">
+                            <p>
+                            Shows JSON Catalog data (such as effects, spells, items) that could not be found.
+                            <br><br>
+                            These are likely issues with either your installation or the mod itself.
+                            </p>
+                        </div>
+                    </h2>
+                    <div class="table-wrapper">
+                        <table id="missing-data"></table>
+                    </div>
+                </section>
+                <section>
+                    <h2>Missing Addresses
+                        <div class="help-tip">
+                            <p>
+                            Shows addresses referenced by JSON files that could not be found.
+                            <br><br>
+                            This is almost always an issue with the mod itself - perhaps references to unused items/effects?
+                            </p>
+                        </div>
+                    </h2>
+                    <div class="table-wrapper">
+                        <table id="missing-addresses"></table>
+                    </div>
+                </section>
+                <section>
+                    <h2>Events
+                        <div class="help-tip">
+                            <p>A list of notable game events and exceptions that occurred in this log session.</p>
+                        </div>
+                    </h2>
+                    <div id="events"></div>
+                </section>
+            </div>
         </main>
-        <div id="output" class="hidden">
-            <hr>
-            <section>
-            <h2>Info</h2>
-            <div class="tag-list" id="info">
-                <span class="game-info" id="version"></span>
-                <span class="game-info" id="build"></span>
-                <span class="game-info" id="platform"></span>
-                <span class="game-info" id="hmd"></span>
-                <span class="game-info" id="model"></span>
-            </div>
-            </section>
-            <section>
-            <h2>Mods Installed</h2>
-            <div class="tag-list" id="mods"></div>
-            </section>
-            <section>
-            <h2>Incompatible Mods
-                <div class="help-tip">
-                    <p>Checks manifest.json. Minimum game mod version must be matched by mod.</p>
-                </div>
-            </h2>
-            <div id="incompatible-mods"></div>
-            </section>
-            <section>
-            <h2>Mod Load Errors
-                <div class="help-tip">
-                    <p>List of mod JSON files that failed to load, often due to not being properly updated.</p>
-                </div>
-            </h2>
-            <div id="load-errors"></div>
-            </section>
-            <section>
-            <h2>Missing Data Errors
-                <div class="help-tip">
-                    <p>
-                        Shows JSON Catalog data (such as effects, spells, items) that could not be found.
-                        <br><br>
-                        These are likely issues with either your installation or the mod itself.
-                    </p>
-                </div>
-            </h2>
-            <div class="table-wrapper">
-                <table id="missing-data"></table>
-            </div>
-            </section>
-            <section>
-            <h2>Missing Addresses
-                <div class="help-tip">
-                    <p>
-                        Shows addresses referenced by JSON files that could not be found.
-                        <br><br>
-                        This is almost always an issue with the mod itself - perhaps references to unused items/effects?
-                    </p>
-                </div>
-            </h2>
-            <div class="table-wrapper">
-                <table id="missing-addresses"></table>
-            </div>
-            </section>
-            <section>
-            <h2>Events
-                <div class="help-tip">
-                    <p>A list of notable game events and exceptions that occurred in this log session.</p>
-                </div>
-            </h2>
-            <div id="events"></div>
-            </section>
-
-        </div>
         <script src="https://cdn.jsdelivr.net/npm/chart.js@3.3.0/dist/chart.min.js"></script>
         <script src="index.js"></script>
         <script>
             window.addEventListener('load', () => {
-                registerSW();
-            });
+                            registerSW();
+                        });
 
-            // Register the Service Worker
-            async function registerSW() {
-                if ('serviceWorker' in navigator) {
-                    try {
-                        await navigator
-                            .serviceWorker
-                            .register('service-worker.js');
-                    }
-                    catch (e) {
-                        console.log('SW registration failed', e);
-                    }
-                }
-            }  </script>
+                        // Register the Service Worker
+                        async function registerSW() {
+                                        if ('serviceWorker' in navigator) {
+                                                        try {
+                                                                        await navigator
+                                                                            .serviceWorker
+                                                                            .register('service-worker.js');
+                                                                    }
+                                                        catch (e) {
+                                                                        console.log('SW registration failed', e);
+                                                                    }
+                                                    }
+                                    }  </script>
     </body>
 </html>
