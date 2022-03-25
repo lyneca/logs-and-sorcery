@@ -59,6 +59,15 @@ main {
     margin-right: 5px;
 }
 
+pre#directory, pre.directory {
+    padding: 10px 10px;
+    font-size: 15px;
+    border-radius: 5px;
+    margin: 10px auto;
+    overflow-x: auto;
+    max-width: 80%;
+}
+
 #version::before { content: "Version"; }
 #build::before { content: "Unity Version"; }
 #platform::before { content: "Platform"; }
@@ -182,7 +191,7 @@ canvas {
     display: block;
     user-select: text;
     width: 100%;
-    padding: 0 10px;
+    padding: 0 30px;
     margin-top: 0;
     box-sizing: border-box;
     transition: max-height 0.2s ease-in-out, margin 0.2s ease-in-out, padding 0.2s ease-in-out, background-color 0.2s ease-in-out;;
@@ -192,7 +201,7 @@ canvas {
 
 .expanded {
     background-color: #555566;
-    padding: 10px;
+    padding: 10px 30px;
     max-height: 200px;
 }
 
@@ -310,14 +319,29 @@ span.prefix {
     padding: 2px 10px;
 }
 
+.tags {
+    position: absolute;
+    margin-top: -4px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    right: 5px;
+}
+
+.tag {
+    padding: 2px 10px;
+    position: relative;
+}
+
 .table-wrapper {
     width: 80%;
+    max-height: 700px;
     margin: auto;
     text-align: left;
     border-radius: 10px;
+    overflow: auto;
     box-shadow: 0 0 10px 5px rgba(0, 0, 0, 0.1);
     padding: 10px;
-    overflow-x: scroll;
 }
 
 table {

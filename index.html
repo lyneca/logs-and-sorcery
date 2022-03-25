@@ -16,6 +16,7 @@
         <!-- Manifest File link -->
         <link rel="manifest" href="manifest.json">
 
+        <link rel="stylesheet" href="icofont.min.css">
         <link rel="preconnect" href="https://fonts.googleapis.com">
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
         <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300&family=Roboto&display=swap" rel="stylesheet"> 
@@ -51,6 +52,10 @@
                         <span class="game-info" id="vram"></span>
                         <span class="game-info" id="driver"></span>
                     </div>
+                </section>
+                <section>
+                    <h2>Installation Directory</h2>
+                    <pre id="directory"></pre>
                 </section>
                 <section>
                     <h2>Mods Installed</h2>
@@ -90,9 +95,9 @@
                     <h2>Missing Addresses
                         <div class="help-tip">
                             <p>
-                            Shows addresses referenced by JSON files that could not be found.
+                            Shows addresses referenced by JSON files that could not be found. These assets will not be able to load.
                             <br><br>
-                            This is almost always an issue with the mod itself - perhaps references to unused items/effects?
+                            This is an issue with the mod itself, not your installation - missing addresses, or possibly unused ones that haven't been cleaned up.
                             </p>
                         </div>
                     </h2>
