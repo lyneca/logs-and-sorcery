@@ -66,7 +66,7 @@ let tags = {
 
 function checkLine(string, regex, callback) {
     let match = string.match(regex);
-if (match) {
+    if (match) {
         callback(match.groups);
     }
 }
@@ -117,20 +117,24 @@ class GlobalEvent {
 }
 
 class LogException {
-    constructor(type, error, lines, tags) {
+    constructor(type, error, lines, tags, mods) {
         this.type = type;
         this.error = error;
         this.lines = lines;
         this.count = 0;
         this.eventType = "exception";
         this.tags = tags;
+        this.mods = mods;
+        this.extras = {
+            'modded': `<br><span style="margin-bottom: 5px;">Possible causes:</span><br>${Array.from(this.mods).map(mod => ` - <span class="hover-mod-name">${mod}</span>`).join('<br>')}`
+        }
     }
 
     render() {
         return `<div class="exception event" onclick="expandException(this)">
                     ${(this.count > 1) ? `<span class="dim count">${this.count}x</span>` : ""}
                     <span class="tags">
-                    ${Array.from(this.tags).map(tag => `<i class="tag icofont-${tags[tag].icon}"><p>${tags[tag].text}</p></i>`).join('')}
+                    ${Array.from(this.tags).map(tag => `<i class="tag icofont-${tags[tag].icon}"><p>${tags[tag].text}${this.extras[tag] ? this.extras[tag] : ''}</p></i>`).join('')}
                     </span>
                     <div class="event-title">${this.type}</div>
                     ${(this.error) ? `<span class="exception-title">${this.error}</span>` : ''}
@@ -197,17 +201,6 @@ class ExceptionLine {
     }
 }
 
-/*
-Unable to open archive file: E:/SteamLibrary/steamapps/common/Blade & Sorcery/BladeAndSorcery_Data/StreamingAssets/Mods/SpeedrunnerTools/speedrunnertools_assets_all.bundle
-Failed to read data for the AssetBundle 'StreamingAssets\Mods\SpeedrunnerTools\speedrunnertools_assets_all.bundle'.
-RemoteProviderException : Invalid path in AssetBundleProvider: 'E:/SteamLibrary/steamapps/common/Blade & Sorcery/BladeAndSorcery_Data/StreamingAssets\Mods\SpeedrunnerTools\speedrunnertools_assets_all.bundle'.
-OperationException : GroupOperation failed because one of its dependencies failed
-RemoteProviderException : Invalid path in AssetBundleProvider: 'E:/SteamLibrary/steamapps/common/Blade & Sorcery/BladeAndSorcery_Data/StreamingAssets\Mods\SpeedrunnerTools\speedrunnertools_assets_all.bundle'.
-System.Exception: Dependency Exception ---> UnityEngine.ResourceManagement.Exceptions.OperationException: GroupOperation failed because one of its dependencies failed ---> UnityEngine.ResourceManagement.Exceptions.RemoteProviderException: Invalid path in AssetBundleProvider: 'E:/SteamLibrary/steamapps/common/Blade & Sorcery/BladeAndSorcery_Data/StreamingAssets\Mods\SpeedrunnerTools\speedrunnertools_assets_all.bundle'.
-   --- End of inner exception stack trace ---
-   --- End of inner exception stack trace ---
-*/
-
 class Block {
     constructor(string) {
         let isException = false;
@@ -216,6 +209,7 @@ class Block {
         let exceptionLines = [];
         let exceptionIsModded = false;
         let exceptionTags = new Set();
+        let modsMentioned = new Set();
         for (let line of string.split("\r\n")) {
             checkLine(line, /Mono path\[0\] = '(?<path>.+)'$/, groups => {
                 gameInfo.gameDir = groups.path;
@@ -270,6 +264,7 @@ class Block {
                 exceptionType = groups.exceptionType;
                 exceptionError = groups.error;
                 exceptionTags = new Set();
+                modsMentioned = new Set();
                 exceptionIsModded = false;
             });
             checkLine(line, /Unable to open archive file: (?<file>.+StreamingAssets\/Mods\/(?<mod>.+)(\/.+)?\/(?<bundle>.+).bundle)/, groups => {
@@ -288,8 +283,11 @@ class Block {
                             groups.line));
                     if (groups.location.match(/__instance|Prefix|Postfix/))
                         exceptionTags.add("harmony");
-                    if (!groups.location.match(/^(ThunderRoad|Unity|DelegateList|ONSPAudioSource|SteamVR|OVR|OculusVR|System|\(wrapper|Valve|delegate)/))
+                    if (!groups.location.match(/^(ThunderRoad|Unity|DelegateList|ONSPAudioSource|SteamVR|OVR|OculusVR|System|\(wrapper|Valve|delegate|MonoBehaviourCallbackHooks)/)) {
+                        let match = groups.location.match(/^(?<namespace>\w+)\./)
+                        modsMentioned.add(match.groups.namespace);
                         exceptionIsModded = true;
+                    }
                 }
             });
             checkLine(line, /Mod (?<mod>.+) for \((?<version>.+)\) is not compatible with current min mod version (?<minVersion>.+)/, groups => {
@@ -329,7 +327,7 @@ class Block {
         }
         if (isException) {
             exceptionTags.add(exceptionIsModded ? "modded" : "unmodded");
-            gameInfo.events.push(new LogException(exceptionType, exceptionError, exceptionLines, exceptionTags));
+            gameInfo.events.push(new LogException(exceptionType, exceptionError, exceptionLines, exceptionTags, modsMentioned));
         }
     }
 }

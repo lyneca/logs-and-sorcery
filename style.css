@@ -387,6 +387,13 @@ code {
     background-color: rgba(0, 0, 0, 0.3);
 }
 
+/* .hover-mod-name::before { */
+    /* content: ' - ' */
+/* } */
+/* .hover-mod-name { */
+    /* margin-left: 10px; */
+/* } */
+
 @media screen and (max-width: 1200px) {
     main {
         width: 100%;
