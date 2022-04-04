@@ -56,12 +56,30 @@ class GameInfo {
     incompatibleMods = {};
     missingAddresses = []
     missingCatalogData = [];
+    summaries = new Set();
+    brokenMods = new Set();
 }
 
 let tags = {
     unmodded: { icon: "info-circle", text: "This exception traceback does not mention any modded code.<br><br>It may be a base-game issue, but more likely it's the game reacting poorly to something a mod has done." },
     modded: { icon: "plugin", text: "This exception may come from modded code." },
     harmony: { icon: "screw-driver", text: "This exception likely comes from code injected using Harmony." },
+}
+
+let summaries = {
+    pirated: {
+        cause: () => "You are running a pirated version of the game, and shouldn't expect mods to work.",
+        solution: () => "Buy the game through Steam or Oculus.",
+        color: "#883333"
+    },
+    incompatibleMods: {
+        cause: () => "One or more of your mods is not compatible with your game version.",
+        solution: () => "See the 'Incompatible Mods' section below to see which mods aren't up to date."
+    },
+    brokenMods: {
+        cause: () => `The following mods encountered errors: <ul>${Array.from(gameInfo.brokenMods).map(mod => `<li>${mod}</li>`).join('')}</ul>`,
+        solution: () => `<span>There are more details in the exception logs below; look for the <i class="icofont-plugin"></i> icon and contact the developer of the mod.<span><br>`
+    }
 }
 
 function checkLine(string, regex, callback) {
@@ -292,6 +310,7 @@ class Block {
             });
             checkLine(line, /Mod (?<mod>.+) for \((?<version>.+)\) is not compatible with current min mod version (?<minVersion>.+)/, groups => {
                 gameInfo.incompatibleMods[groups.mod] = new IncompatibleMod(groups.mod, groups.version, groups.minVersion);
+                gameInfo.summaries.add("incompatibleMods");
             });
             checkLine(line, /LoadJson : Cannot read file (?<file>(?<modFolder>.+?)\\.+) \((?<error>.+)\)/, groups => {
                 if (!gameInfo.loadErrors[groups.modFolder]) {
@@ -327,6 +346,9 @@ class Block {
         }
         if (isException) {
             exceptionTags.add(exceptionIsModded ? "modded" : "unmodded");
+            Array.from(modsMentioned).forEach(mod => gameInfo.brokenMods.add(mod));
+            if (exceptionIsModded)
+                gameInfo.summaries.add("brokenMods");
             gameInfo.events.push(new LogException(exceptionType, exceptionError, exceptionLines, exceptionTags, modsMentioned));
         }
     }
@@ -392,6 +414,7 @@ function display() {
     displayMissingAddresses();
     displayExceptions();
     displayEvents();
+    displaySummary();
 }
 
 function displayInfo() {
@@ -403,18 +426,30 @@ function displayInfo() {
 }
 
 function displayMods() {
+    if (gameInfo.mods.length == 0) {
+        document.querySelector('#mods').innerHTML = `<div class="dim italic">No mods installed.</div>`;
+        return;
+    }
     document.querySelector('#mods').innerHTML = gameInfo.mods.map(
         mod => `<span class="mod">${mod}</span>`
     ).join('');
 }
 
 function displayOldMods() {
+    if (Object.values(gameInfo.incompatibleMods).length == 0) {
+        document.querySelector('#incompatible-mods').innerHTML = `<div class="dim italic">No incompatible mods.</div>`;
+        return;
+    }
     document.querySelector('#incompatible-mods').innerHTML = Object.values(gameInfo.incompatibleMods).map(
         data => `<div class="incompatible-mod missing-data-item">${data.mod}<span class="dim normal line-left">mod v${data.version}, needs v${data.minVersion}</span></div>`
     ).join('');
 }
 
 function displayLoadErrors() {
+    if (Object.keys(gameInfo.loadErrors).length == 0) {
+        document.querySelector('#load-errors').innerHTML = `<div class="dim italic">No mod load errors.</div>`;
+        return;
+    }
     document.querySelector('#load-errors').innerHTML = Object.keys(gameInfo.loadErrors).map(
         key => `<div class="load-error-category">
         <h3 class="load-error-name" onclick="expandLoadErrorCategory(this)"><span class="load-error-count">${gameInfo.loadErrors[key].length}</span>${key}</h3>
@@ -448,6 +483,23 @@ function displayEvents() {
         .join('');
 }
 
+function displaySummary() {
+    if (gameInfo.platform == "Unknown (pirated?)") gameInfo.summaries.add("pirated");
+    if (gameInfo.summaries.size == 0) {
+        document.querySelector('#summary').innerHTML = `<div class="dim italic">No summaries available.</div>`
+        return;
+    }
+    document.querySelector('#summary').innerHTML = Array
+        .from(gameInfo.summaries)
+        .map(tag =>
+        `<div class="summary-item" style="background-color: ${summaries[tag].color ?? "#4a4a5a"}">
+            <i class="icofont-exclamation-circle summary-icon"></i>
+            <div class="cause">${summaries[tag].cause()}</div>
+            <div class="solution"><span class="dim">Solution:</span><span>${summaries[tag].solution()}</span></div>
+        </div>`)
+        .join('');
+}
+
 function expandException(elem) {
     let error = elem.querySelector(".event-details");
     if (error == null)
@@ -476,77 +528,3 @@ function expandLoadError(elem) {
         error.classList.remove("expanded");
     }
 }
-
-/*
-const exceptionsByTypeCtx = document.getElementById('exception-types').getContext('2d');
-const exceptionsByType = new Chart(exceptionsByTypeCtx, {
-    type: 'doughnut',
-    data: {
-        labels: ['Red', 'Blue', 'Yellow', 'Green', 'Purple', 'Orange'],
-        datasets: [{
-            label: '# of Votes',
-            data: [12, 19, 3, 5, 2, 3],
-            backgroundColor: [
-                'rgba(255, 99, 132, 0.2)',
-                'rgba(54, 162, 235, 0.2)',
-                'rgba(255, 206, 86, 0.2)',
-                'rgba(75, 192, 192, 0.2)',
-                'rgba(153, 102, 255, 0.2)',
-                'rgba(255, 159, 64, 0.2)'
-            ],
-            borderColor: [
-                'rgba(255, 99, 132, 1)',
-                'rgba(54, 162, 235, 1)',
-                'rgba(255, 206, 86, 1)',
-                'rgba(75, 192, 192, 1)',
-                'rgba(153, 102, 255, 1)',
-                'rgba(255, 159, 64, 1)'
-            ],
-            borderWidth: 1
-        }]
-    },
-    options: {
-        scales: {
-            y: {
-                beginAtZero: true
-            }
-        }
-    }
-});
-
-const exceptionsByModsCtx = document.getElementById('exception-mods').getContext('2d');
-const exceptionsByMods = new Chart(exceptionsByModsCtx, {
-    type: 'doughnut',
-    data: {
-        labels: ['Red', 'Blue', 'Yellow', 'Green', 'Purple', 'Orange'],
-        datasets: [{
-            label: '# of Votes',
-            data: [12, 19, 3, 5, 2, 3],
-            backgroundColor: [
-                'rgba(255, 99, 132, 0.2)',
-                'rgba(54, 162, 235, 0.2)',
-                'rgba(255, 206, 86, 0.2)',
-                'rgba(75, 192, 192, 0.2)',
-                'rgba(153, 102, 255, 0.2)',
-                'rgba(255, 159, 64, 0.2)'
-            ],
-            borderColor: [
-                'rgba(255, 99, 132, 1)',
-                'rgba(54, 162, 235, 1)',
-                'rgba(255, 206, 86, 1)',
-                'rgba(75, 192, 192, 1)',
-                'rgba(153, 102, 255, 1)',
-                'rgba(255, 159, 64, 1)'
-            ],
-            borderWidth: 1
-        }]
-    },
-    options: {
-        scales: {
-            y: {
-                beginAtZero: true
-            }
-        }
-    }
-});
-*/
