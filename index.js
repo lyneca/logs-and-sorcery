@@ -195,9 +195,9 @@ class ExceptionLine {
                 argsPart = [...funcSig.groups.args.matchAll(/(?:([^`, ]+)[^, ]*( ([^`, ]+)[^ ,]*)?)/g)].map(x => x[1] + (x[2] ? x[2] : ''));
             let argsString = "";
             argsPart = argsPart.map(part => {
-                let argPortions = [...part.split(' ')[0].matchAll(/(\w+(\.|\+|\/)?)/g)].map(x => x[1]);
+                let argPortions = [...part.split(' ')[0].matchAll(/(\w+(\.|\+|\\)?)/g)].map(x => x[1]);
                 if (argPortions.length > 1) {
-                    let portions = argPortions.slice(0, argPortions.length - 1).map(portion => `<span class="arg dim">${portion.replace(/\+|\//, '.')}</span>`);
+                    let portions = argPortions.slice(0, argPortions.length - 1).map(portion => `<span class="arg dim">${portion.replace(/\+|\\/, '.')}</span>`);
                     portions.push(`<span class="arg">${argPortions[argPortions.length - 1]}</span>`);
                     return portions.join('') + (part.split(' ').length > 1 ? ` <span>${part.split(' ')[1]}</span>` : '');
                 } else {
@@ -239,15 +239,17 @@ class Block {
         let modsMentioned = new Set();
         let isExceptionLine = false;
         let hasSeenExceptionLine = false;
+        let bundleLoadErrors = {}
         for (let line of string.split("\r\n")) {
+            line = line.replace(/\//g, '\\');
             isExceptionLine = false;
             checkLine(line, /Mono path\[0\] = '(?<path>.+)'$/, groups => {
                 gameInfo.gameDir = groups.path;
             });
-            checkLine(line, /Mono path\[0\] = '.+(Oculus)?\/Software.+/i, () => {
+            checkLine(line, /Mono path\[0\] = '.+(Oculus)?\\Software.+/i, () => {
                 gameInfo.platform = "Oculus";
             });
-            checkLine(line, /Mono path\[0\] = '.+steamapps\/common.+/i, () => {
+            checkLine(line, /Mono path\[0\] = '.+steamapps\\common.+/i, () => {
                 gameInfo.platform = "Steam";
             });
             checkLine(line, /\(Filename: (?<filename>.+)? Line: (?<line>\d+)?\)/, groups => {
@@ -260,7 +262,7 @@ class Block {
             checkLine(line, /Initialize engine version: (?<version>.+)/, groups => {
                 gameInfo.build = groups.version;
             });
-            checkLine(line, /Loading plugin assembly .+BladeAndSorcery_Data[\\/]StreamingAssets[\\/]Mods[\\/](?<dirName>[^/\\]+)[\\/](.+[\\/])*(?<dllName>[^/\\]+).dll/, groups => {
+            checkLine(line, /Loading plugin assembly .+BladeAndSorcery_Data\\StreamingAssets\\Mods\\(?<dirName>[^/\\]+)\\(.+\\)*(?<dllName>[^/\\]+).dll/, groups => {
                 gameInfo.loadedDLLs.push(new LoadedDLL(groups.dirName, groups.dllName));
             });
             checkLine(line, /Device model : (?<model>.+)/, groups => {
@@ -314,7 +316,7 @@ class Block {
                 isExceptionLine = true;
                 hasSeenExceptionLine = false;
             });
-            checkLine(line, /Unable to open archive file: (?<file>.+StreamingAssets\/Mods\/(?<mod>.+)(\/.+)?\/(?<bundle>.+).bundle)/, groups => {
+            checkLine(line, /Unable to open archive file: (?<file>.+StreamingAssets\\Mods\\(?<mod>.+)(\\.+)?\\(?<bundle>.+).bundle)/, groups => {
                 if (!gameInfo.loadErrors[groups.mod]) {
                     gameInfo.loadErrors[groups.mod] = [];
                 }
@@ -380,12 +382,15 @@ class Block {
                 }
                 gameInfo.loadErrors[groups.modFolder].push(new LoadError(groups.bundleName + '.bundle', "Bundle " + groups.reason));
             });
-            checkLine(line, /Invalid path in AssetBundleProvider: '(.+\/StreamingAssets\\Mods\\(?<modFolder>[^\\]+)\\(?<bundleName>.+))\.bundle'\.$/, groups => {
+            checkLine(line, /CRC Mismatch. Provided .+, calculated .+ from data. Will not load AssetBundle '(?<bundleName>.+).bundle'/, groups => {
+                bundleLoadErrors[groups.bundleName] = "CRC mismatch in Asset Bundle. This is a problem with your installation, delete and fully re-install the mod.";
+            });
+            checkLine(line, /Invalid path in AssetBundleProvider: '(.+\\StreamingAssets\\Mods\\(?<modFolder>[^\\]+)\\(?<bundleName>.+))\.bundle'\.$/, groups => {
                 if (!gameInfo.loadErrors[groups.modFolder]) {
                     gameInfo.loadErrors[groups.modFolder] = [];
                 }
                 if (gameInfo.loadErrors[groups.modFolder].find(elem => elem.file) == undefined)
-                    gameInfo.loadErrors[groups.modFolder].push(new LoadError(groups.bundleName + '.bundle', "Could not load asset bundle."));
+                    gameInfo.loadErrors[groups.modFolder].push(new LoadError(groups.bundleName + '.bundle', bundleLoadErrors[groups.bundleName] ?? "Could not load asset bundle."));
             });
             checkLine(line, /Unable to find asset at ress?ource location \[(?<location>.+)\] of type \[(?<dataType>.+)\] for object \[(?<requester>.+) \((?<requesterType>.+)\)\]/, groups => {
                 gameInfo.missingAddresses.push(new MissingAddressError(groups.location, groups.dataType, groups.requester, groups.requesterType))
