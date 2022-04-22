@@ -302,7 +302,7 @@ class Block {
             checkLine(line, /Crash!!!/, () => {
                 gameInfo.events.push(new GlobalEvent("Hard crash!", "Check the log for stack traces.<br>This is likely an underlying problem with your PC, or GPU drivers.", WARN))
             });
-            checkLine(line, /^(?<exceptionType>\w*Exception)(: (?<error>.+))?$/, groups => {
+            checkLine(line, /^(Exception in Update Loop: )?(System\.)?(?<exceptionType>(\w+\.)*\w*Exception)(: (?<error>.+))?$/, groups => {
                 isException = true;
                 exceptionType = groups.exceptionType;
                 exceptionError = groups.error;
