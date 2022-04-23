@@ -88,9 +88,6 @@ hr {
     padding: 10px;
 }
 
-.cause {
-}
-
 .solution {
     grid-column-start: 2;
     display: flex;
@@ -334,6 +331,10 @@ canvas {
     line-break: anywhere;
 }
 
+.exception-line-filename {
+    color: rgba(255, 255, 255, 0.5);
+}
+
 span.prefix {
     font-family: "Fira Code", monospace;
 }
@@ -353,7 +354,7 @@ span.prefix {
 }
 
 .dim {
-    color: rgba(255, 255, 255, 0.4);
+    color: rgba(255, 255, 255, 0.3);
 }
 
 .arg {
