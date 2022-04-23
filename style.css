@@ -353,6 +353,10 @@ span.prefix {
     text-align: left;
 }
 
+.fadet{
+    color: rgba(255, 255, 255, 0.5);
+}
+
 .dim {
     color: rgba(255, 255, 255, 0.3);
 }
