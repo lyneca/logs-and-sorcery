@@ -51,7 +51,7 @@ class GameInfo {
     vram = "Unknown";
     driver = "Unknown";
     gameDir = ""
-    mods = [];
+    mods = {};
     events = [];
     loadErrors = {};
     loadedDLLs = [];
@@ -70,6 +70,7 @@ let tags = {
 
 const ignoredArgs = [
     "ThunderRoad.",
+    "Generic.",
     "UnityEngine.",
     "System.",
     "Collections.",
@@ -105,6 +106,15 @@ function checkLine(string, regex, callback) {
 }
 
 let gameInfo = new GameInfo();
+
+class Mod {
+    constructor(modFolder, modName, modAuthor, modTags) {
+        this.folder = modFolder;
+        this.name = modName;
+        this.author = modAuthor;
+        this.tags = modTags;
+    }
+}
 
 class MissingAddressError {
     constructor(id, type, requester, requesterType) {
@@ -325,9 +335,20 @@ class Block {
             checkLine(line, / +Driver: +(?<driver>.+)/, groups => {
                 gameInfo.driver = groups.driver;
             });
-            checkLine(line, /JSON loader - Loading custom file: (?<modFolder>.+?)\\/, groups => {
-                gameInfo.mods.push(groups.modFolder);
-                gameInfo.mods = [...new Set(gameInfo.mods)];
+            checkLine(line, /\[DLL\]\[(?<modFolder>.+)\] - Loading plugins (?<modName>.+) by (?<modAuthor>.+)/, groups => {
+                let existing = gameInfo.mods[groups.modFolder];
+                if (existing) {
+                    existing.tags.push('plugin');
+                } else {
+                    gameInfo.mods[groups.modFolder] = new Mod(groups.modFolder, groups.modName, groups.modAuthor, ['plugin']);
+                }
+            });
+            checkLine(line, /\[JSON\]\[(?<modFolder>.+)\] - Loading catalog (?<modName>.+) by (?<modAuthor>.+)/, groups => {
+                let existing = gameInfo.mods[groups.modFolder];
+                if (existing) {
+                } else {
+                    gameInfo.mods[groups.modFolder] = new Mod(groups.modFolder, groups.modName, groups.modAuthor, ['plugin']);
+                }
             });
             checkLine(line, /Crash!!!/, () => {
                 gameInfo.events.push(new GlobalEvent("Hard crash!", "Check the log for stack traces.<br>This is likely an underlying problem with your PC, or GPU drivers.", WARN))
@@ -390,7 +411,7 @@ class Block {
                 gameInfo.incompatibleMods[groups.mod] = new IncompatibleMod(groups.mod, groups.version, groups.minVersion);
                 gameInfo.summaries.add("incompatibleMods");
             });
-            checkLine(line, /LoadJson : Cannot read file (?<file>(?<modFolder>.+?)\\.+) \((?<error>.+)\)/, groups => {
+            checkLine(line, /LoadJson : Cannot read file (.+StreamingAssets[\\\/]Mods[\\\/])(?<file>(?<modFolder>.+?)\\.+) \((?<error>.+)\)/, groups => {
                 if (!gameInfo.loadErrors[groups.modFolder]) {
                     gameInfo.loadErrors[groups.modFolder] = [];
                 }
@@ -541,8 +562,8 @@ function displayMods() {
         document.querySelector('#mods').innerHTML = `<div class="dim italic">No mods installed.</div>`;
         return;
     }
-    document.querySelector('#mods').innerHTML = gameInfo.mods.map(
-        mod => `<span class="mod">${mod}</span>`
+    document.querySelector('#mods').innerHTML = Object.values(gameInfo.mods).map(
+        mod => `<span class="mod">${mod.name}<span class="dim line-left">${mod.author}</span></span>`
     ).join('');
 }
 
