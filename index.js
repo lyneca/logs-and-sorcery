@@ -258,6 +258,7 @@ class ExceptionLine {
             .replace(/E:\/Dev\/BladeAndSorcery\/Library\/PackageCache\/(?<package>.+?)@(?<version>.+?)\//, (_, name, version) => `<span class="dim">[${name} @ ${version}]</span> `)
             .replace("E:/Dev/BladeAndSorcery/", `<span class="dim">[ThunderRoad]</span> `)
             .replace("C:/buildslave/unity/build/", `<span class="dim">[Unity]</span> `)
+            .replace(/[A-Z]:\/Users\/.+?\/AppData\/Local\/JetBrains\/Shared\/vAny\/DecompilerCache\/decompiler\/.+?\/.+?\/.+?\//, `<span class="dim">[ThunderRoad]</span> `)
             .replace("C:/Users/atrag/source/repos/", `<span class="dim">[lyneca]</span> `);
     }
 
