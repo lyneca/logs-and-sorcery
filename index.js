@@ -62,6 +62,8 @@ class GameInfo {
     brokenMods = new Set();
 }
 
+let lastLevel = null;
+
 let tags = {
     unmodded: { icon: "info-circle", text: "This exception traceback does not mention any modded code.<br><br>It may be a base-game issue, but more likely it's the game reacting poorly to something a mod has done." },
     modded: { icon: "plugin", text: "This exception likely comes from modded code." },
@@ -155,17 +157,25 @@ class LoadedDLL {
 }
 
 class GlobalEvent {
-    constructor(text, description, color) {
+    constructor(text, description, color, props) {
         this.color = color ?? "#338833";
         this.text = text;
         this.description = description;
+        this.props = props ?? {};
         this.eventType = "global";
     }
 
     render() {
+        let desc = []
+        if (this.description !== undefined)
+            desc.push(`<div>${this.description}</div>`);
+        if (this.props !== undefined)
+            Object.keys(this.props).forEach(key => {
+                desc.push(`<div class="split" style="max-width: 20%; min-width: 200px; margin: auto;"><span class="dim">${key}:</span><span class="code select">${this.props[key]}</span></div>`);
+            });
         return `<div class="global event" style="background-color: ${this.color}">
                     <div class="event-title">${this.text}</div>
-                    ${(this.description === undefined) ? '' : `<div class="event-details">${this.description}</div>`}
+                    ${desc.length > 0 ? `<div class="event-details">${desc.join("")}</div>` : ""}
                 </div>`
     }
 }
@@ -352,7 +362,7 @@ class Block {
                 }
             });
             checkLine(line, /Crash!!!/, () => {
-                gameInfo.events.push(new GlobalEvent("Hard crash!", "Check the log for stack traces.<br>This is likely an underlying problem with your PC, or GPU drivers.", WARN))
+                gameInfo.events.push(new GlobalEvent("Hard crash!", "Check the log for stack traces.<br>This may an underlying problem with your PC, or GPU drivers.", WARN))
             });
             checkLine(line, /^(Exception in Update Loop: )?(System\.)?(?<exceptionType>(\w+\.)*\w*Exception)(: (?<error>.+))?$/, groups => {
                 // Skip dependency exceptions, they are covered by Mod Load Errors
@@ -438,11 +448,21 @@ class Block {
             checkLine(line, /Player take possession of/, () => {
                 gameInfo.events.push(new GlobalEvent("Player possessed creature"));
             });
-            checkLine(line, /Load level (?<level>\w+)/, (groups) => {
-                gameInfo.events.push(new GlobalEvent(`Loaded level ${groups.level}`));
+            checkLine(line, /Load level (?<level>\w+)/, groups => {
+                lastLevel = new GlobalEvent(`Loaded level ${groups.level}`)
+                gameInfo.events.push(lastLevel);
             });
             checkLine(line, /Game is quitting/, () => {
                 gameInfo.events.push(new GlobalEvent('Game is quitting'));
+            });
+            checkLine(line, /Option: Difficulty: (?<difficulty>\d+)/, groups => {
+                lastLevel.props.difficulty = groups.difficulty;
+            });
+            checkLine(line, /Option: DungeonLength: (?<dungeonLength>\d+)/, groups => {
+                lastLevel.props.length = groups.dungeonLength;
+            });
+            checkLine(line, /Seed: (?<seed>\d+)/, groups => {
+                lastLevel.props.seed = groups.seed;
             });
             checkLine(line, /The AssetBundle 'StreamingAssets\\Mods\\(?<modFolder>[^\\]+)\\(?<bundleName>.+).bundle' (?<reason>.+)/, groups => {
                 if (!gameInfo.loadErrors[groups.modFolder]) {
