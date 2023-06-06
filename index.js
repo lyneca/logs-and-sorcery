@@ -115,10 +115,10 @@ function checkLine(string, regex, callback) {
 let gameInfo = new GameInfo();
 
 class Mod {
-    constructor(modFolder, modName, modAuthor, modTags) {
+    constructor(modFolder, modName, modTags) {
         this.folder = modFolder;
         this.name = modName;
-        this.author = modAuthor;
+        this.author = 'Unknown'
         this.tags = modTags;
     }
 }
@@ -389,12 +389,25 @@ class Block {
             checkLine(line, / +Driver: +(?<driver>.+)/, groups => {
                 gameInfo.driver = groups.driver;
             });
-            checkLine(line, /\[DLL\]\[(?<modFolder>.+)\] - Loading plugins (?<modName>.+) by (?<modAuthor>.+)/, groups => {
-                let existing = gameInfo.mods[groups.modFolder];
+            checkLine(line, /\[ModManager\] Added valid mod folder: (?<folder>.+)\. Mod: (?<name>.+)/, groups => {
+                let existing = gameInfo.mods[groups.name];
                 if (existing) {
                     existing.tags.push('plugin');
                 } else {
-                    gameInfo.mods[groups.modFolder] = new Mod(groups.modFolder, groups.modName, groups.modAuthor, ['plugin']);
+                    gameInfo.mods[groups.name] = new Mod(groups.folder, groups.name, []);
+                }
+            });
+            checkLine(line, /\[ModManager\]\[Assembly\] - Loading mod: (?<name>.+)/, groups => {
+                let existing = gameInfo.mods[groups.name];
+                if (existing) {
+                    existing.tags.push('dll');
+                }
+            });
+            checkLine(line, /Loading mod catalog (?<name>.+) by (?<author>.+)/, groups => {
+                let existing = gameInfo.mods[groups.name];
+                if (existing) {
+                    existing.tags.push('catalog');
+                    existing.author = groups.author;
                 }
             });
             checkLine(line, /\[JSON\]\[(?<modFolder>.+)\] - Loading catalog (?<modName>.+) by (?<modAuthor>.+)/, groups => {
@@ -468,7 +481,7 @@ class Block {
                     isExceptionLine = true;
                 }
             });
-            checkLine(line, /Mod (?<mod>.+) for \((?<version>.+)\) is not compatible with current min mod version (?<minVersion>.+)/, groups => {
+            checkLine(line, /\[ModManager\] - Mod (?<mod>.+) for \((?<version>.+)\) is not compatible with current minimum mod version (?<minVersion>.+)/, groups => {
                 gameInfo.incompatibleMods[groups.mod] = new IncompatibleMod(groups.mod, groups.version, groups.minVersion);
                 gameInfo.summaries.add("incompatibleMods");
             });
