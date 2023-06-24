@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <!-- Responsive -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+    <!-- Title -->
+    <title>Logs &amp; Sorcery</title>
+
+    <!-- Meta Tags requred for Progressive Web App -->
+    <meta name="apple-mobile-web-app-status-bar" content="#aa7700">
+    <meta name="theme-color" content="black">
+
+    <!-- Manifest File link -->
+    <link rel="manifest" href="manifest.json">
+
+    <link rel="stylesheet" href="icofont.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300&family=Roboto&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="hint.css">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NNSE7T1WQY"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'G-NNSE7T1WQY');
+    </script>
+</head>
+
+<body>
+    <input type="file" id="file-click-input" style="position:fixed;top:-1000px"></input>
+    <h1>Logs &amp; Sorcery</h1>
+    <main>
+        <div id="file-input">DROP LOG FILE HERE</div>
+        <div class="help">
+            <p>Your log file can be found here:</p>
+            <pre>%userprofile%\AppData\LocalLow\WarpFrog\BladeAndSorcery</pre>
+            <p>or</p>
+            <pre>C:\Users\[your username]\AppData\LocalLow\WarpFrog\BladeAndSorcery</pre>
+            <p>Go to that folder in your file explorer, and drag the file <code>Player.log</code> into the box above.
+            </p>
+            <br>
+            <p><em>Note: Log files are overwritten every time you run the game.</em></p>
+        </div>
+        <div id="output" class="hidden">
+            <hr>
+            <section>
+                <h2>Summary</h2>
+                <div id="summary"></div>
+            </section>
+            <hr>
+            <section>
+                <h2>Info</h2>
+                <div class="tag-list" id="info">
+                    <span class="game-info" id="version"></span>
+                    <span class="game-info" id="build"></span>
+                    <span class="game-info" id="platform"></span>
+                    <span class="game-info" id="hmd"></span>
+                    <span class="game-info" id="model"></span>
+                    <span class="game-info" id="renderer"></span>
+                    <span class="game-info" id="vram"></span>
+                    <span class="game-info" id="driver"></span>
+                </div>
+            </section>
+            <section>
+                <h2>Installation Directory</h2>
+                <pre id="directory"></pre>
+            </section>
+            <section>
+                <h2>Mods Installed</h2>
+                <div class="tag-list" id="mods"></div>
+            </section>
+            <section>
+                <h2>Incompatible Mods
+                    <div class="help-tip">
+                        <p>Checks manifest.json. The minimum game mod version must be matched by each mod.</p>
+                    </div>
+                </h2>
+                <div id="incompatible-mods"></div>
+            </section>
+            <section>
+                <h2>Mod Load Errors
+                    <div class="help-tip">
+                        <p>List of mod JSON files that failed to load.<br><br>This could be due to invalid JSON files,
+                            missing .DLL files, or missing/broken mod dependencies.</p>
+                    </div>
+                </h2>
+                <div id="load-errors"></div>
+            </section>
+            <section>
+                <h2>Missing Data Errors
+                    <div class="help-tip">
+                        <p>
+                            Shows JSON Catalog data (such as effects, spells, items) that could not be found.
+                            <br><br>
+                            These are likely issues with either your installation or the mod itself.
+                        </p>
+                    </div>
+                </h2>
+                <div class="table-wrapper">
+                    <table id="missing-data"></table>
+                </div>
+            </section>
+            <section>
+                <h2>Missing Addresses
+                    <div class="help-tip">
+                        <p>
+                            Shows addresses referenced by JSON files that could not be found. These assets will not be
+                            able to load.
+                            <br><br>
+                            This can an issue with the mod itself, not your installation - missing addresses, or
+                            possibly unused ones that haven't been cleaned up.
+                            <br><br>
+                            However you may also see errors here if you have accidentally installed a mod twice, or
+                            edited the JSON of a mod.
+                        </p>
+                    </div>
+                </h2>
+                <div class="table-wrapper">
+                    <table id="missing-addresses"></table>
+                </div>
+            </section>
+            <section>
+                <h2>Events
+                    <div class="help-tip">
+                        <p>A list of notable game events and exceptions that occurred in this log session.</p>
+                    </div>
+                </h2>
+                <div id="events"></div>
+            </section>
+        </div>
+    </main>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@3.3.0/dist/chart.min.js"></script>
+    <script src="index.js"></script>
+    <script>
+        window.addEventListener('load', () => {
+            registerSW();
+        });
+
+        // Register the Service Worker
+        async function registerSW() {
+            if ('serviceWorker' in navigator) {
+                try {
+                    await navigator
+                        .serviceWorker
+                        .register('service-worker.js');
+                } catch (e) {
+                    console.log('SW registration failed', e);
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>
