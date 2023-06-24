@@ -35,12 +35,13 @@ String.prototype.hashCode = function() {
 class GameInfo {
     version = "";
     build = "";
-    platform = "Unknown (pirated)?";
-    hmd = "Temporarily Unavailable";
-    hmdModel = "Temporarily Unavailable";
+    platform = "Unknown (pirated?)";
+    hmd = "Unknown";
+    hmdModel = "Unknown";
     mods = [];
     events = [];
     loadErrors = {};
+    missingCatalogData = [];
 }
 
 function checkLine(string, regex, callback) {
@@ -51,6 +52,13 @@ if (match) {
 }
 
 let gameInfo = new GameInfo();
+
+class MissingDataError {
+    constructor(id, type) {
+        this.id = id;
+        this.type = type;
+    }
+}
 
 class LoadError {
     constructor(file, error) {
@@ -194,6 +202,10 @@ class Block {
                 }
                 gameInfo.loadErrors[groups.modFolder].push(new LoadError(groups.file, groups.error));
             });
+            checkLine(line, /Data \[(?<id>.+?) \| -?\d+\] of type \[(?<dataType>.+?)\] cannot be found in catalog/, groups => {
+                if (groups.id != "null")
+                    gameInfo.missingCatalogData.push(new MissingDataError(groups.id, groups.dataType));
+            });
             checkLine(line, /Content catalog loaded/, () => {
                 gameInfo.events.push(new GlobalEvent("Catalog Loaded"));
             });
@@ -268,6 +280,7 @@ function display() {
     displayInfo();
     displayMods();
     displayLoadErrors();
+    displayMissingCatalogData();
     displayExceptions();
     displayEvents();
 }
@@ -295,6 +308,12 @@ function displayLoadErrors() {
                     <span class="load-error-error">${error.error}</span></div>`).join("")}
             </div>
         </div>`
+    ).join('');
+}
+
+function displayMissingCatalogData() {
+    document.querySelector('#missing-data').innerHTML = gameInfo.missingCatalogData.map(
+        data => `<div class="missing-data-item">${data.id}<span class="dim normal line-left">${data.type}</span></div>`
     ).join('');
 }
 

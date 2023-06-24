@@ -74,6 +74,30 @@ canvas {
     background-color: #444455;
 }
 
+.missing-data-item {
+    font-family: "Fira Code", monospace;
+    display: inline-block;
+    padding: 5px;
+    margin: 5px;
+    border-radius: 5px;
+    background-color: #444455;
+}
+
+.normal {
+    font-family: "Roboto", sans-serif;
+}
+
+.line-left {
+    border-left: 1px solid #666666;
+    padding-left: 5px;
+    margin-left: 5px;
+}
+.line-right {
+    border-right: 1px solid #666666;
+    padding-right: 5px;
+    margin-right: 5px;
+}
+
 .load-error-count {
     padding: 5px;
     background-color: #555566;
