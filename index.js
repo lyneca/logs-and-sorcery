@@ -63,6 +63,7 @@ class GameInfo {
 }
 
 let lastLevel = null;
+let potion = null;
 
 let tags = {
     unmodded: { icon: "info-circle", text: "This exception traceback does not mention any modded code.<br><br>It may be a base-game issue, but more likely it's the game reacting poorly to something a mod has done." },
@@ -180,12 +181,50 @@ class GlobalEvent {
     }
 }
 
+class PotionEvent {
+    constructor(reagent, strength) {
+        this.count = 1;
+        this.reagent = reagent;
+        this.strength = strength;
+        this.ingredients = []
+    }
+    render() {
+        return `<div class="global event" style="background-color: #8833AA">
+                    ${(this.count > 1) ? `<span class="dim count">${this.count}x</span>` : ""}
+                    <div class="event-title">Created ${this.reagent} Potion <span class="dim">${this.strength}%</span></div>
+                    ${this.ingredients.length > 0 ? `<div class="event-details">${this.ingredients.map(ingredient => `<div>${ingredient.render()}</div>`).join("")}</div>` : ""}
+                </div>`
+    }
+}
+
+class Ingredient {
+    constructor(ingredient, strength, inverted, modifiers) {
+        this.ingredient = ingredient;
+        this.strength = strength;
+        this.inverted = inverted;
+        this.modifiers = modifiers;
+    }
+
+    render() {
+        return `<span>${this.ingredient}</span><span class="dim"> - ${this.strength}%</span> ${this.inverted ? `<span class="dim italic">- inverted</span>`: ""}`;
+    }
+}
+
+class OnTrigger {
+    constructor(ingredient) {
+        this.ingredient = ingredient;
+    }
+    render() {
+        return `<span>On Trigger: ${this.ingredient}</span>`
+    }
+}
+
 class LogException {
     constructor(type, error, lines, tags, mods) {
         this.type = type;
         this.error = error;
         this.lines = lines;
-        this.count = 0;
+        this.count = 1;
         this.eventType = "exception";
         this.tags = tags;
         this.mods = mods;
@@ -496,6 +535,24 @@ class Block {
             checkLine(line, /========== OUTPUTTING STACK TRACE ==================/, () => {
                 isStackTrace = true;
             });
+            checkLine(line, /\[Alquemie\] \[Alquemie.Potion.Complete\] Completed potion! Created: (?<reagent>.+) \((?<strength>\d+)%\) Potion/, group => {
+                potion = new PotionEvent(group.reagent, group.strength);
+                gameInfo.events.push(potion);
+            });
+            checkLine(line, / - (?<ingredient>.+) \((?<strength>\d+)%(?<inverted> inverted)?\): (?<modifiers>.+)/, group => {
+                potion?.ingredients.push(new Ingredient(group.ingredient, group.strength, group.inverted, group.modifiers));
+            });
+            checkLine(line, /On Trigger:(?<ingredient>.+)/, group => {
+                potion?.ingredients.push(new OnTrigger(group.ingredient));
+            });
+            /*
+            [Alquemie] [Alquemie.Potion.Complete] Completed potion! Created: Basic (100%) Potion with:
+             - Vecura Spores (100% inverted): Safety: -1 (0 * -1), Duration: 1280 (5 * 256)
+             - Vecura Spores (100% inverted): Safety: -1 (0 * -1), Duration: 1280 (5 * 256)
+
+            [Alquemie] [Alquemie.Potion.Complete] Completed potion! Created: Glomervytrum (100%) Potion
+            On Trigger:Perlaco
+            */
         }
         if (isException) {
             exceptionTags.add(exceptionIsModded ? "modded" : "unmodded");
@@ -507,6 +564,27 @@ class Block {
     }
 }
 
+function checkPotionDupes() {
+    const collapsedEvents = [];
+    let lastEvent = null;
+    let lastEventHash = "";
+    gameInfo.events.forEach(event => {
+        if (event.reagent !== undefined) {
+            const json = JSON.stringify(event);
+            if (json != lastEventHash) {
+                lastEventHash = json;
+                lastEvent = event;
+                lastEvent.count = 0;
+                collapsedEvents.push(event);
+            } else {
+                lastEvent.count++;
+            }
+        } else {
+            collapsedEvents.push(event);
+        }
+    });
+    gameInfo.events = collapsedEvents;
+}
 function checkExceptionDupes() {
     const collapsedEvents = [];
     let lastEvent = null;
@@ -549,6 +627,7 @@ function analyseFile(log) {
     for (const block of log) {
         blocks.push(new Block(block));
     }
+    checkPotionDupes();
     checkExceptionDupes();
     display();
 }
