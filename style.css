@@ -189,7 +189,7 @@ canvas {
     cursor: pointer;
     padding: 10px 0;
 }
-.load-error-name:ho class="solution"ver {
+.load-error-name:hover {
     background-color: #4a4a5a;
 }
 
