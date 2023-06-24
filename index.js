@@ -68,6 +68,15 @@ let tags = {
     harmony: { icon: "screw-driver", text: "This exception likely comes from code injected using Harmony." },
 }
 
+const ignoredArgs = [
+    "ThunderRoad.",
+    "UnityEngine.",
+    "System.",
+    "Collections.",
+    "ResourceManagement.",
+    "AsyncOperations.",
+]
+
 let summaries = {
     pirated: {
         cause: () => "You are running a pirated version of the game, and shouldn't expect mods to work.",
@@ -193,7 +202,11 @@ class ExceptionLine {
     getPath() {
         const funcSig = this.location.match(/(?<func>.+?) ?\((?<args>.+)?\)/);
         if (funcSig) {
-            const funcPart = [...funcSig.groups.func.matchAll(/<?(\w+)>?(?:[^. ()]+)?/g)].map(x => x[1] == 'ctor' ? '<span class="italic">constructor</span>' : `<span>${x[1]}</span>`).join(`<span class="dim"> > </span>`);
+            const funcPart = [...funcSig.groups.func
+                .matchAll(/(\w+(<.+?>)?)(?:[^:. ()]+)?/g)]
+                .map(x => x[1].replace(/<(.+)>/, (_, type) => ` <span class="dim">&lt;${type.split(".").pop()}&gt;</span>`))
+                .map(x => x == 'ctor' ? '<span class="italic">constructor</span>' : `<span>${x}</span>`)
+                .join(`<span class="dim"> > </span>`);
             let argsPart = [];
             if (funcSig.groups.args)
                 argsPart = [...funcSig.groups.args.matchAll(/(?:([^`, ]+)[^, ]*( ([^`, ]+)[^ ,]*)?)/g)].map(x => x[1] + (x[2] ? x[2] : ''));
@@ -201,7 +214,12 @@ class ExceptionLine {
             argsPart = argsPart.map(part => {
                 let argPortions = [...part.split(' ')[0].matchAll(/(\w+(\.|\+|\\)?)/g)].map(x => x[1]);
                 if (argPortions.length > 1) {
-                    let portions = argPortions.slice(0, argPortions.length - 1).map(portion => `<span class="arg dim">${portion.replace(/\+|\\/, '.')}</span>`);
+                    let portions = argPortions
+                        .slice(0, argPortions.length - 1)
+                        .map(portion => portion
+                            .replace(/\+|\\/, '.'))
+                            .filter(portion => ignoredArgs.indexOf(portion) == -1)
+                            .map(portion => `<span class="arg dim">${portion}</span>`);
                     portions.push(`<span class="arg">${argPortions[argPortions.length - 1]}</span>`);
                     return portions.join('') + (part.split(' ').length > 1 ? ` <span>${part.split(' ')[1]}</span>` : '');
                 } else {
@@ -220,12 +238,21 @@ class ExceptionLine {
         return this.location;
     }
 
+    renderFilename() {
+        return this.filename
+            .replace(/\\/g, "/")
+            .replace(/E:\/Dev\/BladeAndSorcery\/Library\/PackageCache\/(?<package>.+?)@(?<version>.+?)\//, (_, name, version) => `<span class="dim">[${name} @ ${version}]</span> `)
+            .replace("E:/Dev/BladeAndSorcery/", `<span class="dim">[ThunderRoad]</span> `)
+            .replace("C:/buildslave/unity/build/", `<span class="dim">[Unity]</span> `)
+            .replace("C:/Users/atrag/source/repos/", `<span class="dim">[lyneca]</span> `);
+    }
+
     render() {
         return `<span class="dim">at </span><div class="exception-line">
                     <div class="exception-line-location" title="${this.address}">${this.getPath()}</div>
                     ${(this.filename != undefined && this.line >= 0)
                         ? (`<span><span class="prefix dim">=></span>
-                            <span><span class="dim code">line</span> <span class="exception-line-line">${this.line}</span> <span class="dim code">of</span> </span><span class="exception-line-filename">${this.filename}</span>
+                            <span><span class="dim code">line</span> <span class="exception-line-line">${this.line}</span> <span class="dim code">of</span> </span><span class="exception-line-filename">${this.renderFilename()}</span>
                             </span>`)
                         : ""}
                 </div>`
@@ -330,7 +357,7 @@ class Block {
                 }
                 gameInfo.loadErrors[groups.mod].push(new LoadError(groups.bundle + '.bundle', `Unable to open archive file: <pre class="directory">${groups.file}</pre><br>This is a mod installation issue, so try re-installing. It can also happen if you use Vortex and forget to enable and deploy your mods.`));
             });
-            checkLine(line, /^  at (\(wrapper (managed-to-native|dynamic-method)\) )?(?<location>.+\(.*\)) ?(\[(?<address>0x[a-zA-Z0-9]+)\] in (?<filename>.+):(?<line>\d+))?/, groups => {
+            checkLine(line, /^(  at )?(\(wrapper (managed-to-native|dynamic-method)\) )?(?<location>.+?\(.*?\)) ?((\[(?<address>0x[a-zA-Z0-9]+)\] in |\(at )(?<filename>.+):(?<line>\d+)\)?)?/, groups => {
                 if (isException) {
                     exceptionLines.push(
                         new ExceptionLine(
@@ -344,8 +371,6 @@ class Block {
                         let match = groups.location.match(/^(?<namespace>(\w|\+)+)\./)
                         if (match != null)
                             modsMentioned.add(match.groups.namespace);
-                        else
-                            console.log(groups.location);
                         exceptionIsModded = true;
                     }
                     isExceptionLine = true;
