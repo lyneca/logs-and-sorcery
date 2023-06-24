@@ -64,6 +64,9 @@ main {
 #platform::before { content: "Platform"; }
 #hmd::before { content: "HMD Type"; }
 #model::before { content: "HMD Model"; }
+#renderer::before { content: "GPU"; }
+#vram::before { content: "VRAM"; }
+#driver::before { content: "GPU Driver Version"; }
 
 #exceptions {
     display: flex;
@@ -201,7 +204,7 @@ canvas {
 .hidden { display: none; }
 
 #events {
-    width: 60%;
+    width: 80%;
     box-sizing: border-box;
     margin: auto;
 }
@@ -264,19 +267,29 @@ canvas {
 
 .exception-line-location, .exception-line-filename, .exception-line-line {
     font-family: "Fira Code", monospace;
+    line-break: anywhere;
 }
 
 span.prefix {
     font-family: "Fira Code", monospace;
 }
 
+.block {
+    display: inline-block;
+}
+
+.italic {
+    font-style: italic;
+}
+
 .exception-line {
-    display: block;
+    display: flex;
+    flex-direction: column;
     text-align: left;
 }
 
 .dim {
-    color: rgba(255, 255, 255, 0.5);
+    color: rgba(255, 255, 255, 0.4);
 }
 
 .arg {
@@ -304,12 +317,14 @@ span.prefix {
     border-radius: 10px;
     box-shadow: 0 0 10px 5px rgba(0, 0, 0, 0.1);
     padding: 10px;
+    overflow-x: scroll;
 }
 
 table {
     border-collapse: collapse;
     width: 100%;
     height: 100%;
+    border-spacing: 0 10px;
 }
 
 tr {
@@ -346,4 +361,13 @@ code {
     padding: 3px;
     border-radius: 3px;
     background-color: rgba(0, 0, 0, 0.3);
+}
+
+@media screen and (max-width: 1200px) {
+    main {
+        width: 100%;
+    }
+    #events {
+        width: 90%;
+    }
 }

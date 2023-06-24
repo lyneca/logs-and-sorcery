@@ -46,6 +46,9 @@ class GameInfo {
     platform = "Unknown (pirated?)";
     hmd = "Unknown";
     hmdModel = "Unknown";
+    renderer = "Unknown";
+    vram = "Unknown";
+    driver = "Unknown";
     mods = [];
     events = [];
     loadErrors = {};
@@ -142,20 +145,31 @@ class ExceptionLine {
     }
 
     getPath() {
-        const funcSig = this.location.match(/(?<func>.+?) \((?<args>.+)?\)/);
+        const funcSig = this.location.match(/(?<func>.+?) ?\((?<args>.+)?\)/);
         if (funcSig) {
-            const funcPart = [...funcSig.groups.func.matchAll(/<?(\w+)>?(?:[^. ()]+)?/g)].map(x => `${x[1]}`).join(`<span class="dim"> > </span>`);
+            const funcPart = [...funcSig.groups.func.matchAll(/<?(\w+)>?(?:[^. ()]+)?/g)].map(x => x[1] == 'ctor' ? '<span class="italic">constructor</span>' : `<span>${x[1]}</span>`).join(`<span class="dim"> > </span>`);
             let argsPart = [];
             if (funcSig.groups.args)
-                argsPart = [...funcSig.groups.args.matchAll(/(?:([^`, ]+)[^, ]* ([^`, ]+)[^ ,]*)/g)].map(x => `${x[1]} ${x[2]}`);
+                argsPart = [...funcSig.groups.args.matchAll(/(?:([^`, ]+)[^, ]*( ([^`, ]+)[^ ,]*)?)/g)].map(x => x[1] + (x[2] ? x[2] : ''));
             let argsString = "";
-            argsPart = argsPart.map(x => x.replace(/(\.?\w+)/g, `<span class="arg">$1</span>`));
-            //if (argsPart.length > 1) {
-            //    argsString = argsPart.join(`,<br>${funcPart.replace(/./g, "&nbsp")} `);
-            //} else {
-                argsString = argsPart.join(`<span class="dim">, </span>`);
-            //}
-            return `${funcPart} <span class="dim">(</span>${argsString}<span class="dim">)</span>`;
+            argsPart = argsPart.map(part => {
+                let argPortions = [...part.split(' ')[0].matchAll(/(\w+(\.|\+|\/)?)/g)].map(x => x[1]);
+                if (argPortions.length > 1) {
+                    let portions = argPortions.slice(0, argPortions.length - 1).map(portion => `<span class="arg dim">${portion.replace(/\+|\//, '.')}</span>`);
+                    portions.push(`<span class="arg">${argPortions[argPortions.length - 1]}</span>`);
+                    return portions.join('') + (part.split(' ').length > 1 ? ` <span>${part.split(' ')[1]}</span>` : '');
+                } else {
+                    return `<span class="arg">${argPortions[0]}</span>${part.split(' ').length > 1 ? ` <span>${part.split(' ')[1]}</span>` : ''}`
+                }
+            });
+            argsPart = argsPart.map(x => x.replace(/(\.\w+)/g, `<span class="arg">$1</span>`));
+            argsString = argsPart
+                .map(part => `${part}`)
+                .join(`<span class="dim">,</span>|`)
+                .split('|')
+                .map(part => `<span class="block">${part}</span>`)
+                .join(' ');
+            return `${funcPart} <span>(</span>${argsString}<span>)</span>`;
         }
         return this.location;
     }
@@ -163,10 +177,10 @@ class ExceptionLine {
     render() {
         return `<span class="dim">at </span><div class="exception-line">
                     <div class="exception-line-location" title="${this.address}">${this.getPath()}</div>
-                    ${(this.filename != undefined)
-                        ? (`<span class="prefix dim">=></span>
-                            ${(this.line >= 0) ? `<span class="dim">line <span class="exception-line-line">${this.line}</span> of </span>` : ''}
-                            <span class="exception-line-filename dim">${this.filename}</span>`)
+                    ${(this.filename != undefined && this.line >= 0)
+                        ? (`<span><span class="prefix dim">=></span>
+                            <span><span class="dim code">line</span> <span class="exception-line-line">${this.line}</span> <span class="dim code">of</span> </span><span class="exception-line-filename">${this.filename}</span>
+                            </span>`)
                         : ""}
                 </div>`
     }
@@ -178,7 +192,7 @@ class Block {
         let exceptionType = "";
         let exceptionError = "";
         let exceptionLines = [];
-        for (let line of string.split("\r\n")) {
+        let exceptionTags = new Set(); for (let line of string.split("\r\n")) {
             checkLine(line, /Mono path\[0\] = '.+Oculus\/Software.+/i, () => {
                 gameInfo.platform = "Oculus";
             });
@@ -209,6 +223,15 @@ class Block {
             checkLine(line, /Loader: (?<device>.+) \|/, groups => {
                 gameInfo.hmd = groups.device;
             });
+            checkLine(line, / +Renderer: +(?<gpu>.+)( \(ID=.+\))/, groups => {
+                gameInfo.renderer = groups.gpu;
+            });
+            checkLine(line, / +VRAM: +(?<vram>\d+ MB)/, groups => {
+                gameInfo.vram = groups.vram;
+            });
+            checkLine(line, / +Driver: +(?<driver>.+)/, groups => {
+                gameInfo.driver = groups.driver;
+            });
             checkLine(line, /JSON loader - Loading custom file: (?<modFolder>.+?)\\/, groups => {
                 gameInfo.mods.push(groups.modFolder);
                 gameInfo.mods = [...new Set(gameInfo.mods)];
@@ -217,8 +240,9 @@ class Block {
                 isException = true;
                 exceptionType = groups.exceptionType;
                 exceptionError = groups.error;
+                exceptionTags = new Set();
             });
-            checkLine(line, /^  at (\(wrapper managed-to-native\) )?(?<location>.+\(.*\)) ?(\[(?<address>0x[a-zA-Z0-9]+)\] in (?<filename>.+):(?<line>\d+))?/, groups => {
+            checkLine(line, /^  at (\(wrapper (managed-to-native|dynamic-method)\) )?(?<location>.+\(.*\)) ?(\[(?<address>0x[a-zA-Z0-9]+)\] in (?<filename>.+):(?<line>\d+))?/, groups => {
                 if (isException) {
                     exceptionLines.push(
                         new ExceptionLine(
@@ -226,6 +250,8 @@ class Block {
                             groups.address,
                             groups.filename,
                             groups.line));
+                    if (groups.location.match(/__instance|Prefix|Postfix/))
+                        exceptionTags.add("harmony");
                 }
             });
             checkLine(line, /Mod (?<mod>.+) for \((?<version>.+)\) is not compatible with current min mod version (?<minVersion>.+)/, groups => {
@@ -309,7 +335,10 @@ const infoSpans = {
     build: document.querySelector(".game-info#build"),
     platform: document.querySelector(".game-info#platform"),
     hmd: document.querySelector(".game-info#hmd"),
-    hmdModel: document.querySelector(".game-info#model")
+    hmdModel: document.querySelector(".game-info#model"),
+    renderer: document.querySelector(".game-info#renderer"),
+    vram: document.querySelector(".game-info#vram"),
+    driver: document.querySelector(".game-info#driver")
 }
 
 function display() {
