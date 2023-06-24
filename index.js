@@ -49,12 +49,19 @@ class GameInfo {
     renderer = "Unknown";
     vram = "Unknown";
     driver = "Unknown";
+    gameDir = ""
     mods = [];
     events = [];
     loadErrors = {};
     incompatibleMods = {};
     missingAddresses = []
     missingCatalogData = [];
+}
+
+let tags = {
+    unmodded: { icon: "info-circle", text: "This exception traceback does not mention any modded code.<br><br>It may be a base-game issue, but more likely it's the game reacting poorly to something a mod has done." },
+    modded: { icon: "plugin", text: "This exception may come from modded code." },
+    harmony: { icon: "screw-driver", text: "This exception likely comes from code injected using Harmony." },
 }
 
 function checkLine(string, regex, callback) {
@@ -110,17 +117,21 @@ class GlobalEvent {
 }
 
 class LogException {
-    constructor(type, error, lines) {
+    constructor(type, error, lines, tags) {
         this.type = type;
         this.error = error;
         this.lines = lines;
         this.count = 0;
         this.eventType = "exception";
+        this.tags = tags;
     }
 
     render() {
         return `<div class="exception event" onclick="expandException(this)">
                     ${(this.count > 1) ? `<span class="dim count">${this.count}x</span>` : ""}
+                    <span class="tags">
+                    ${Array.from(this.tags).map(tag => `<i class="tag icofont-${tags[tag].icon}"><p>${tags[tag].text}</p></i>`).join('')}
+                    </span>
                     <div class="event-title">${this.type}</div>
                     ${(this.error) ? `<span class="exception-title">${this.error}</span>` : ''}
                     ${(this.lines.length > 0)
@@ -186,14 +197,30 @@ class ExceptionLine {
     }
 }
 
+/*
+Unable to open archive file: E:/SteamLibrary/steamapps/common/Blade & Sorcery/BladeAndSorcery_Data/StreamingAssets/Mods/SpeedrunnerTools/speedrunnertools_assets_all.bundle
+Failed to read data for the AssetBundle 'StreamingAssets\Mods\SpeedrunnerTools\speedrunnertools_assets_all.bundle'.
+RemoteProviderException : Invalid path in AssetBundleProvider: 'E:/SteamLibrary/steamapps/common/Blade & Sorcery/BladeAndSorcery_Data/StreamingAssets\Mods\SpeedrunnerTools\speedrunnertools_assets_all.bundle'.
+OperationException : GroupOperation failed because one of its dependencies failed
+RemoteProviderException : Invalid path in AssetBundleProvider: 'E:/SteamLibrary/steamapps/common/Blade & Sorcery/BladeAndSorcery_Data/StreamingAssets\Mods\SpeedrunnerTools\speedrunnertools_assets_all.bundle'.
+System.Exception: Dependency Exception ---> UnityEngine.ResourceManagement.Exceptions.OperationException: GroupOperation failed because one of its dependencies failed ---> UnityEngine.ResourceManagement.Exceptions.RemoteProviderException: Invalid path in AssetBundleProvider: 'E:/SteamLibrary/steamapps/common/Blade & Sorcery/BladeAndSorcery_Data/StreamingAssets\Mods\SpeedrunnerTools\speedrunnertools_assets_all.bundle'.
+   --- End of inner exception stack trace ---
+   --- End of inner exception stack trace ---
+*/
+
 class Block {
     constructor(string) {
         let isException = false;
         let exceptionType = "";
         let exceptionError = "";
         let exceptionLines = [];
-        let exceptionTags = new Set(); for (let line of string.split("\r\n")) {
-            checkLine(line, /Mono path\[0\] = '.+Oculus\/Software.+/i, () => {
+        let exceptionIsModded = false;
+        let exceptionTags = new Set();
+        for (let line of string.split("\r\n")) {
+            checkLine(line, /Mono path\[0\] = '(?<path>.+)'$/, groups => {
+                gameInfo.gameDir = groups.path;
+            });
+            checkLine(line, /Mono path\[0\] = '.+(Oculus)?\/Software.+/i, () => {
                 gameInfo.platform = "Oculus";
             });
             checkLine(line, /Mono path\[0\] = '.+steamapps\/common.+/i, () => {
@@ -216,6 +243,8 @@ class Block {
             });
             checkLine(line, /HeadDevice: (?<model>.+)/, groups => {
                 gameInfo.hmdModel = groups.model;
+                if (groups.model == "Miramar")
+                    gameInfo.hmdModel += " (Quest 2)";
             });
             checkLine(line, /LoadedDeviceName : (?<device>.+)/, groups => {
                 gameInfo.hmd = groups.device;
@@ -241,6 +270,13 @@ class Block {
                 exceptionType = groups.exceptionType;
                 exceptionError = groups.error;
                 exceptionTags = new Set();
+                exceptionIsModded = false;
+            });
+            checkLine(line, /Unable to open archive file: (?<file>.+StreamingAssets\/Mods\/(?<mod>.+)(\/.+)?\/(?<bundle>.+).bundle)/, groups => {
+                if (!gameInfo.loadErrors[groups.mod]) {
+                    gameInfo.loadErrors[groups.mod] = [];
+                }
+                gameInfo.loadErrors[groups.mod].push(new LoadError(groups.bundle + '.bundle', `Unable to open archive file: <pre class="directory">${groups.file}</pre><br>This is a mod installation issue, so try re-installing. It can also happen if you use Vortex and forget to enable and deploy your mods.`));
             });
             checkLine(line, /^  at (\(wrapper (managed-to-native|dynamic-method)\) )?(?<location>.+\(.*\)) ?(\[(?<address>0x[a-zA-Z0-9]+)\] in (?<filename>.+):(?<line>\d+))?/, groups => {
                 if (isException) {
@@ -252,6 +288,8 @@ class Block {
                             groups.line));
                     if (groups.location.match(/__instance|Prefix|Postfix/))
                         exceptionTags.add("harmony");
+                    if (!groups.location.match(/^(ThunderRoad|Unity|DelegateList|ONSPAudioSource|SteamVR|OVR|OculusVR|System|\(wrapper|Valve|delegate)/))
+                        exceptionIsModded = true;
                 }
             });
             checkLine(line, /Mod (?<mod>.+) for \((?<version>.+)\) is not compatible with current min mod version (?<minVersion>.+)/, groups => {
@@ -285,9 +323,14 @@ class Block {
             checkLine(line, /Load level (?<level>\w+)/, (groups) => {
                 gameInfo.events.push(new GlobalEvent(`Loaded level ${groups.level}`));
             });
+            checkLine(line, /Game is quitting/, () => {
+                gameInfo.events.push(new GlobalEvent('Game is quitting'));
+            });
         }
-        if (isException)
-            gameInfo.events.push(new LogException(exceptionType, exceptionError, exceptionLines));
+        if (isException) {
+            exceptionTags.add(exceptionIsModded ? "modded" : "unmodded");
+            gameInfo.events.push(new LogException(exceptionType, exceptionError, exceptionLines, exceptionTags));
+        }
     }
 }
 
@@ -338,7 +381,7 @@ const infoSpans = {
     hmdModel: document.querySelector(".game-info#model"),
     renderer: document.querySelector(".game-info#renderer"),
     vram: document.querySelector(".game-info#vram"),
-    driver: document.querySelector(".game-info#driver")
+    driver: document.querySelector(".game-info#driver"),
 }
 
 function display() {
@@ -358,6 +401,7 @@ function displayInfo() {
         infoSpans[key].innerHTML = gameInfo[key];
         infoSpans[key].style.display = "inline-block";
     }
+    document.querySelector('#directory').innerHTML = gameInfo.gameDir;
 }
 
 function displayMods() {
