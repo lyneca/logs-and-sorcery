@@ -341,8 +341,11 @@ class Block {
                     if (groups.location.match(/__instance|Prefix|Postfix/))
                         exceptionTags.add("harmony");
                     if (!groups.location.match(/^(ThunderRoad|Unity|DelegateList|ONSPAudioSource|SteamVR|OVR|OculusVR|System|\(wrapper|Valve|delegate|MonoBehaviourCallbackHooks)/)) {
-                        let match = groups.location.match(/^(?<namespace>\w+)\./)
-                        modsMentioned.add(match.groups.namespace);
+                        let match = groups.location.match(/^(?<namespace>(\w|\+)+)\./)
+                        if (match != null)
+                            modsMentioned.add(match.groups.namespace);
+                        else
+                            console.log(groups.location);
                         exceptionIsModded = true;
                     }
                     isExceptionLine = true;
