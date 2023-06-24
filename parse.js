@@ -10,6 +10,7 @@ const containers = {
 }
 
 const IGNORED_ARGS = [
+    "Newtonsoft.",
     "ThunderRoad.",
     "Generic.",
     "UnityEngine.",
@@ -22,7 +23,7 @@ const IGNORED_ARGS = [
 const SUGGESTIONS = {
     "delete-save": {
         title: "Delete your save file.",
-        description: `Go to ${code("Documents/My Games/Blade & Sorcery/Saves/Default")} and deleting all files present there.`,
+        description: `Go to ${code("Documents/My Games/Blade & Sorcery/Saves/Default")} and delete all files present there.`,
     },
     "check-dll": {
         title: "Check your spell mods for missing DLL files.",
@@ -44,6 +45,18 @@ const EXCEPTION_TAGS = {
 }
 
 const capitals = ['dll', 'json']
+
+String.prototype.hashCode = function () {
+    var hash = 0,
+        i, chr;
+    if (this.length === 0) return hash;
+    for (i = 0; i < this.length; i++) {
+        chr = this.charCodeAt(i);
+        hash = ((hash << 5) - hash) + chr;
+        hash |= 0; // Convert to 32bit integer
+    }
+    return hash;
+}
 
 const fileInput = document.querySelector("#file-input");
 const fileClickInput = document.getElementById("file-click-input");
@@ -95,12 +108,19 @@ function niceify(string) {
 }
 
 function slugify(string) {
-    return string.replace(/[_ ]/g, '-').toLowerCase();
+    return string.replace(/[_ ]/g, '-').replace(/[!@#$%^&*]/g, '').toLowerCase();
 }
 
-function renderValue(string) {
-    if (string.match(/^[A-Z]:[\/\\]/)) return code(string);
-    return string;
+function renderValue(value) {
+    switch (typeof value) {
+        case 'string': return (value.match(/^[A-Z]:[\/\\]/) || !value.match(/ /) && value.match(/\./))? code(value) : value;
+        case 'object':
+            if (Array.isArray(value)) {
+                return value.map(renderValue).join(', ');
+            }
+            return code(JSON.stringify(value, undefined, ' '));
+    }
+    return value;
 }
 
 function expandException(elem) {
@@ -121,11 +141,12 @@ function clickButton(id) {
     document.querySelector('#mod-details').innerHTML = callback.call(game);
 }
 
-function objectToTable(obj) {
-    return '<table>' + Object.entries(obj).map(([key, value]) => `<tr><td>${niceify(key)}</td><td>${renderValue(value)}</td></tr>`).join('') + '</table>';
+function objectToTable(obj, includeEmpty = true) {
+    return '<table>' + Object.entries(obj).map(([key, value]) => (includeEmpty || (value != '' && value != null && value != undefined)) ? `<tr><td>${niceify(key)}</td><td>${renderValue(value)}</td></tr>` : '').join('') + '</table>';
 }
 
 function objectListToTable(list, keys) {
+    keys ??= list.length > 0 ? [...Object.keys(list[1])] : [];
     return '<table>'
         + `<tr>${keys.map(key => `<th>${niceify(key)}</th>`).join('')}</tr>`
         + list.map(obj => `<tr>${keys.map(key => `<td>${renderValue(obj[key])}</td>`).join('')}</tr>`).join('')
@@ -135,20 +156,18 @@ function objectListToTable(list, keys) {
 function screenshot(event, element) {
     event.preventDefault();
     event.stopPropagation();
-    console.log(element.classList)
     if (element.querySelector('.event-hidden')) {
         expandException(element);
     }
     html2canvas(element).then(canvas => {
-        console.log("Rendered")
         canvas.toBlob(function (blob) {
-            console.log("trying to save")
             saveAs(blob, "exception.png");
         });
     });
 }
 
 function code(string) {
+    if (string.startsWith('<code>')) return string;
     return `<code>${string}</code>`
 }
 
@@ -192,9 +211,23 @@ class Game {
         return null;
     }
 
-    findModByAssembly(assembly) {
-        let found = this.mods.filter(mod => mod.assemblies.includes(assembly));
+    findModByNamespace(namespace) {
+        let found = this.mods.filter(mod => mod.namespaces.has(namespace));
         if (found.length > 0) return found[0];
+        return null;
+    }
+
+    findModByAssembly(assembly) {
+        let found = this.mods.filter(mod => mod.assemblies.filter(eachAssembly => eachAssembly.dll == assembly));
+        if (found.length > 0) return found[0];
+        return null;
+    }
+
+    fuzzyFindMod(mod) {
+        let search = game.modFinder.search(mod);
+        if (search.length > 0) {
+            return search[0].item;
+        }
         return null;
     }
 
@@ -290,7 +323,7 @@ class Game {
     }
 
     selector(name, callback, count) {
-        let slug = slugify(name);;
+        let slug = slugify(name);
         game.selectors[`selector-${slug}`] = () => callback.call(this);
         return `<div class="mod" onclick="clickButton('selector-${slug}')" id="selector-${slug}">
         <div class="mod-headers">
@@ -335,16 +368,19 @@ class Mod {
         this.name = name;
         this.folder = folder;
         this.assemblies = []
+        this.namespaces = new Set();
         this.catalogs = []
         this.loadErrors = []
         this.missingData = []
         this.exceptions = []
+        this.collapsed = []
         this.overrides = []
         this.json = []
         this.tags = new Set();
     }
 
     complete() {
+        this.collapseExceptions();
         if (this.assemblies.filter(assembly => assembly.dll == "0Harmony.dll").length > 0)
             this.tags.add("harmony");
     }
@@ -385,13 +421,31 @@ class Mod {
         </div>`
     }
 
+    collapseExceptions() {
+        let collapsed = {}
+        this.exceptions.forEach(exception => {
+            const hash = JSON.stringify(exception).hashCode();
+            if (collapsed[hash]) {
+                collapsed[hash].count++;
+            } else {
+                collapsed[hash] = { exception: exception, count: 1 };
+            }
+        });
+        this.collapsed = [...Object.values(collapsed)];
+    }
+
     renderDetails() {
-        return objectToTable({
+        let table = objectToTable({
             name: this.name,
-            folder: code(this.folder + '/'),
+            folder: code(this.folder),
             assemblies: this.assemblies.map(assembly => code(assembly.dll)).join(', '),
-            catalogs: this.catalogs.map(catalog => code(catalog.catalog)).join(', ')
-        })
+            catalogs: this.catalogs.map(catalog => code(catalog.catalog)).join(', '),
+            tags: [...this.tags].join(', ')
+        }, false)
+        let loadErrors = objectListToTable(this.loadErrors);
+        let missingData = objectListToTable(this.missingData);
+        let exceptions = div(this.collapsed.map(exception => exception.exception.render(exception.count)).join(''));
+        return [table, game.hr(), loadErrors, game.hr(), missingData, game.hr(), exceptions].join('');
         /* 
         Name
         Folder
@@ -427,14 +481,10 @@ class Exception {
 
     complete() {
         let foundMods = [];
+        console.log(this);
         this.mods.forEach(mod => {
-            let found = game.findModByAssembly(mod);
-            if (found == null) {
-                let search = game.modFinder.search(mod);
-                if (search.length > 0) {
-                    found = search[0].item;
-                }
-            }
+            let found = game.findModByNamespace(mod) ?? game.findModByAssembly(mod) ?? game.fuzzyFindMod(mod);
+            console.log(mod, found);
             if (found) {
                 foundMods.push(found.name);
                 game.mods.find(mod => mod.folder == found.folder).exceptions.push(this);
@@ -455,14 +505,16 @@ class Exception {
             game.addSuggestion('delete-save', "Your game appears to be unable to load, due to your save file containing an unknown spell.");
         }
     }
-    render() {
+    render(count) {
+        count ??= this.count;
         return `<div class="exception event" onclick="expandException(this)">
                     <span class="tags">
                     ${Array.from(this.tags).map(tag => `<i class="tag icofont-${EXCEPTION_TAGS[tag].icon}"><p>${EXCEPTION_TAGS[tag].text}</p></i>`).join('')}
-                    <i class="tag icofont-camera screenshot" onclick="screenshot(event, this.parentElement.parentElement)"></i>
+                    <i class="tag icofont-camera screenshot" alt="Screenshot exception" onclick="screenshot(event, this.parentElement.parentElement)"></i>
                     </span>
-                    <div class="event-title">${(this.count > 1) ? `<span class="dim count">${this.count}x</span>` : ""}${this.type}</div>
-                    ${(this.mods) ? `<span class="exception-title">${this.error}</span>` : ''}
+                    <div class="event-title">${(count > 1) ? `<span class="dim count">${count}x</span>` : ""}${this.type}</div>
+                    ${(this.mods.length > 0) ? `<span class="exception-title dim">${this.mods}</span>` : ''}
+                    ${(this.mods.length > 0 && this.error) ? '<span class="dim">//</span>' : ''}
                     ${(this.error) ? `<span class="exception-title">${this.error}</span>` : ''}
                     ${(this.lines.length > 0)
                 ? `<div class="event-details event-hidden">
@@ -611,6 +663,7 @@ function parse(lines) {
             exception = new Exception(groups.type, groups.error);
         });
 
+        // Match game pool generation finishing and the loading being 'complete'
         match(line, /.*Complete pool generation finished in: \d+\.\d+ sec/, () => {
             game.begin();
         })
@@ -626,7 +679,7 @@ function parse(lines) {
 
                 // Match mod assembly
                 match(line, /\[ModManager\]\[Assembly\] - Loading assembly: (?<path>([^\\]+\\)+)(?<dll>.+\.dll)/, groups => {
-                    let folder = groups.path.split('/')[0];
+                    let folder = groups.path.split('\\')[0];
                     game.findModByFolder(folder)?.assemblies.push({
                         path: groups.path.replace(/\\$/, '').replace(/\\/, '/'),
                         dll: groups.dll
@@ -672,11 +725,15 @@ function parse(lines) {
 
                 // Match JSON files that cannot be read due to missing assemblies.
                 match(prev, /LoadJson : Cannot read json file .+StreamingAssets\\Mods\\(?<path>([^\\]+\\)+)(?<json>.+\.json) ?\((?<error>.+)\)/, groups => {
-                    console.log(groups.path, groups.json, groups.error);
                     match(line, /Could not load assembly '(?<assembly>.+)'\./, subGroup => {
-                        console.log(subGroup.assembly);
                         game.addSuggestion('check-dll', { mod: game.findModByFolder(groups.path.split(/\\/)[0]).name, json: code(groups.json), possible_dll_name: code(subGroup.assembly + '.dll') });
                     });
+                });
+
+
+                match(line, /\[ModManager\]\[ThunderScript\] - Loaded ThunderScript: (?<namespace>[^.]+)\.(?<class>.+) on mod: (?<name>.+) in assembly: (?<assembly>.+), Version=.+/, groups => {
+                    let mod = game.findModByName(groups.name);
+                    mod.namespaces.add(groups.namespace);
                 });
 
                 // Match level load events
@@ -684,7 +741,7 @@ function parse(lines) {
                     game.addEvent(`Loading level ${groups.level}...`, undefined, { mode: groups.mode });
                 });
                 match(line, /Total time to load (?<level>.+): (?<time>.+) sec/, groups => {
-                    game.addEvent(`Loaded level ${groups.level}`, undefined, { duration: `${groups.time}s` });
+                    game.addEvent(`Loaded level ${groups.level}`, undefined, { load_time: `${groups.time}s` });
                 });
 
                 // Match game load events
@@ -707,7 +764,7 @@ function parse(lines) {
                             groups.line));
                     if (groups.location.match(/__instance|Prefix|Postfix/))
                         exception.tags.add("harmony");
-                    if (!groups.location.match(/^(ThunderRoad|Unity|DelegateList|ONSPAudioSource|SteamVR|OVR|OculusVR|System|\(wrapper|Valve|delegate|MonoBehaviourCallbackHooks)/)) {
+                    if (!groups.location.match(/^(ThunderRoad|Unity|DelegateList|ONSPAudioSource|SteamVR|OVR|OculusVR|System|\(wrapper|Valve|delegate|MonoBehaviourCallbackHooks|Newtonsoft)/)) {
                         let match = groups.location.match(/^(?<namespace>(\w|\+)+)\./)
                         if (match != null)
                             exception.mods.add(match.groups.namespace);
