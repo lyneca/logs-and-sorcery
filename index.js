@@ -574,7 +574,7 @@ function checkPotionDupes() {
             if (json != lastEventHash) {
                 lastEventHash = json;
                 lastEvent = event;
-                lastEvent.count = 0;
+                lastEvent.count = 1;
                 collapsedEvents.push(event);
             } else {
                 lastEvent.count++;
@@ -595,7 +595,7 @@ function checkExceptionDupes() {
             if (json != lastEventHash) {
                 lastEventHash = json;
                 lastEvent = event;
-                lastEvent.count = 0;
+                lastEvent.count = 1;
                 collapsedEvents.push(event);
             } else {
                 lastEvent.count++;
