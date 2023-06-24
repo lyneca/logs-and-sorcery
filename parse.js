@@ -26,13 +26,13 @@ const SUGGESTIONS = {
         description: `Go to ${code("Documents/My Games/Blade & Sorcery/Saves/Default")} and delete all files present there.`,
     },
     "check-dll": {
-        title: "Check your spell mods for missing DLL files.",
+        title: "Check your scripted mods for missing DLL files.",
         description: 'Sometimes, antivirus software can treat DLL files (which is where mod scripting and logic lives) as suspicious files. '
-            + 'Double-check that your spell mods each contain a .dll file.',
+            + 'Double-check that your scripted mods each contain a .dll file.',
         cols: ['mod', 'json', 'possible_dll_name']
     },
     "pirated": {
-        title: "Buy Blade and Sorcery legitimately on Steam or Oculus.",
+        title: icon("warning") + "Buy Blade and Sorcery legitimately on Steam or Oculus." + icon("warning") ,
         description: "<strong>Do not ask for help with modding if you own an illegitimate copy of the game.</strong><br>"
             + "If you have pirated the game you should <em>not</em> expect mods to work."
     }
@@ -41,10 +41,18 @@ const SUGGESTIONS = {
 const EXCEPTION_TAGS = {
     unmodded: { icon: "info-circle", text: "This exception traceback does not mention any modded code.<br><br>It may be a base-game issue, but more likely it's the game reacting poorly to something a mod has done." },
     modded: { icon: "plugin", text: "This exception likely comes from modded code." },
-    harmony: { icon: "screw-driver", text: "This exception likely comes from code injected using Harmony." },
+    harmony: {
+        icon: "screw-driver",
+        text: "This exception likely comes from code injected using Harmony, and is NOT a base-game issue.",
+        extra: () => "Possible causes:<br>" + game.mods.filter(mod => mod.tags.has('harmony')).map(mod => span(" - " + mod.name, "hover-mod-name")).join('<br>'), },
 }
 
-const capitals = ['dll', 'json']
+const ARG_REPLACEMENTS = {
+    boolean: "bool",
+    single: "float"
+}
+
+const capitals = ['dll', 'json', 'id']
 
 String.prototype.hashCode = function () {
     var hash = 0,
@@ -108,7 +116,7 @@ function niceify(string) {
 }
 
 function slugify(string) {
-    return string.replace(/[_ ]/g, '-').replace(/[!@#$%^&*]/g, '').toLowerCase();
+    return string.replace(/[_ ]/g, '-').replace(/[^\w-]/g, '').toLowerCase();
 }
 
 function renderValue(value) {
@@ -141,13 +149,23 @@ function clickButton(id) {
     document.querySelector('#mod-details').innerHTML = callback.call(game);
 }
 
-function objectToTable(obj, includeEmpty = true) {
-    return '<table>' + Object.entries(obj).map(([key, value]) => (includeEmpty || (value != '' && value != null && value != undefined)) ? `<tr><td>${niceify(key)}</td><td>${renderValue(value)}</td></tr>` : '').join('') + '</table>';
+function objectToTable(obj, title, includeEmpty = true) {
+    return (title ? `<h3>${title}</h3>` : '')
+        + '<table class="auto-table">'
+        + Object.entries(obj)
+            .map(([key, value]) => (includeEmpty || (value != '' && value != null && value != undefined))
+                ? `<tr><td>${niceify(key)}</td><td>${renderValue(value)}</td></tr>`
+                : '')
+            .join('')
+        + '</table>';
 }
 
-function objectListToTable(list, keys) {
-    keys ??= list.length > 0 ? [...Object.keys(list[1])] : [];
-    return '<table>'
+function objectListToTable(list, keys, title, note) {
+    if (!list || list.length == 0) return '';
+    keys ??= list.length > 0 ? [...Object.keys(list[0])] : [];
+    return (title ? `<h3>${title}</h3>` : '')
+        + (note ? `<span class="dim italic">${note}</span>` : '')
+        + '<table class="auto-table">'
         + `<tr>${keys.map(key => `<th>${niceify(key)}</th>`).join('')}</tr>`
         + list.map(obj => `<tr>${keys.map(key => `<td>${renderValue(obj[key])}</td>`).join('')}</tr>`).join('')
         + '</table>';
@@ -171,8 +189,16 @@ function code(string) {
     return `<code>${string}</code>`
 }
 
+function icon(name, tooltip) {
+    return `<i class="pad icofont-${name}">${tooltip ? `<p>${tooltip}</p>` : ''}</i>`
+}
+
 function div(string, className) {
     return `<div${className ? ' class="' + className + '"' : ''}>${string}</div>`;
+}
+
+function span(string, className) {
+    return `<span${className ? ' class="' + className + '"' : ''}>${string}</span>`;
 }
 
 function emph(string) {
@@ -231,21 +257,62 @@ class Game {
         return null;
     }
 
+    findModByData(id, address) {
+        // console.log(`Searching for ${id} or ${address}...`)
+        if (address.startsWith('Bas.')) return null;
+        if (address.split('.').length >= 3) {
+            let [author, mod, ...data] = address.split('.');
+            if (id.split('.').length > 1) {
+                id = id.split('.')[id.split('.').length - 1];
+            }
+            // console.log(`Searching mods for ${author} and ${mod} - '"${mod}"|'"${author}"`)
+            let results = this.modFinder.search(`'"${mod}"|'"${author}"`);
+            results.forEach(result => {
+                
+            })
+            // console.log(results)
+            if (results.length > 0 && results[0].score < 0.2) {
+                // console.log(`found mod ${results[0].item.folder} score ${results[0].score} via mod name ${mod}`)
+                return results[0].item;
+            }
+
+            // console.log(`Searching mod data for ${author}, ${mod} and ${id}`)
+            results = this.dataFinder.search(`'"${mod}" '"${author}" '"${id}"`);
+            if (results.length > 0 && results[0].score < 0.2) {
+                // console.log(`found mod ${results[0].item.folder} score ${results[0].score} via result ${id}`)
+                return this.findModByFolder(results[0].item.folder);
+            }
+        }
+        if (id.split('.').length > 1) {
+            id = id.split('.')[id.split('.').length - 1];
+        }
+        let data = this.dataFinder.search(id);
+        if (data.length > 0) {
+            // console.log(`found mod ${data[0].item.folder} score ${data[0].score} via data ${id}`)
+            return this.findModByFolder(data[0].item.folder);
+        }
+    }
+
     begin() {
         if (this.system.platform === undefined) {
             this.addSuggestion('pirated')
         }
         this.begun = true;
         this.modFinder = new Fuse(this.mods, {
-            keys: ['assemblies', 'name', 'folder']
+            keys: ['assemblies', 'name', 'folder', 'author'],
+            includeScore: true,
+            useExtendedSearch: true
         });
         this.dataFinder = new Fuse(this.mods.flatMap(mod => mod.json.map(json => {
             return {
-                folder: mod.folder,
-                name: json.file
+                name: json.file,
+                authorFolder: mod.author + '.' + mod.folder,
+                folder: mod.folder
             }
         })), {
-            keys: ['mod', 'name']
+            keys: ['authorFolder', 'author', 'folder', 'name'],
+            includeScore: true,
+            useExtendedSearch: true
         })
     }
 
@@ -254,13 +321,12 @@ class Game {
         this.mods.forEach(mod => mod.complete());
         this.collapseTimeline();
         this.missingData.forEach(data => {
-            let results = this.dataFinder.search(data.id);
-            if (results.length > 0)
-                this.findModByFolder(results[0].item.folder)?.missingData.push({
-                    address: data.address,
-                    id: data.id,
-                    type: data.type
-                })
+            // console.log(`Searching for ${data.id}`)
+            game.findModByData(data.id, data.address)?.missingData.push({
+                address: data.address,
+                id: data.id,
+                type: data.type
+            });
         })
     }
 
@@ -319,7 +385,7 @@ class Game {
     }
 
     renderTimeline() {
-        return this.timeline.map(value => value.render()).join('');
+        return div(this.timeline.map(value => value.render()).join(''));
     }
 
     selector(name, callback, count) {
@@ -437,15 +503,16 @@ class Mod {
     renderDetails() {
         let table = objectToTable({
             name: this.name,
+            author: this.author,
             folder: code(this.folder),
             assemblies: this.assemblies.map(assembly => code(assembly.dll)).join(', '),
             catalogs: this.catalogs.map(catalog => code(catalog.catalog)).join(', '),
             tags: [...this.tags].join(', ')
-        }, false)
-        let loadErrors = objectListToTable(this.loadErrors);
-        let missingData = objectListToTable(this.missingData);
-        let exceptions = div(this.collapsed.map(exception => exception.exception.render(exception.count)).join(''));
-        return [table, game.hr(), loadErrors, game.hr(), missingData, game.hr(), exceptions].join('');
+        }, "Details", false)
+        let loadErrors = objectListToTable(this.loadErrors, undefined, "Load Errors");
+        let missingData = objectListToTable(this.missingData, undefined, "Missing Data", "Note: Mod attribution is 'best guess' and may not be accurate.");
+        let exceptions = this.collapsed.length > 0 ? div(this.collapsed.map(exception => exception.exception.render(exception.count)).join('')) : '';
+        return [table, loadErrors, missingData, exceptions].filter(elem => elem).join(game.hr());
         /* 
         Name
         Folder
@@ -480,13 +547,11 @@ class Exception {
     }
 
     complete() {
-        let foundMods = [];
-        console.log(this);
+        let foundMods = new Set();
         this.mods.forEach(mod => {
             let found = game.findModByNamespace(mod) ?? game.findModByAssembly(mod) ?? game.fuzzyFindMod(mod);
-            console.log(mod, found);
             if (found) {
-                foundMods.push(found.name);
+                foundMods.add(found.name);
                 game.mods.find(mod => mod.folder == found.folder).exceptions.push(this);
                 this.tags.add('modded');
             } else {
@@ -496,7 +561,7 @@ class Exception {
 
         this.mods = foundMods;
 
-        if (!this.tags.has('modded')) this.tags.add('unmodded');
+        if (!this.tags.has('modded') && (!this.tags.has('harmony'))) this.tags.add('unmodded');
 
         if (this.type == "NullReferenceException"
             && this.lines.length > 1
@@ -509,12 +574,12 @@ class Exception {
         count ??= this.count;
         return `<div class="exception event" onclick="expandException(this)">
                     <span class="tags">
-                    ${Array.from(this.tags).map(tag => `<i class="tag icofont-${EXCEPTION_TAGS[tag].icon}"><p>${EXCEPTION_TAGS[tag].text}</p></i>`).join('')}
+                    ${Array.from(this.tags).map(tag => `<i class="tag icofont-${EXCEPTION_TAGS[tag].icon}"><p>${EXCEPTION_TAGS[tag].text + '<br>' + (EXCEPTION_TAGS[tag].extra ? EXCEPTION_TAGS[tag].extra() : '')}</p></i>`).join('')}
                     <i class="tag icofont-camera screenshot" alt="Screenshot exception" onclick="screenshot(event, this.parentElement.parentElement)"></i>
                     </span>
                     <div class="event-title">${(count > 1) ? `<span class="dim count">${count}x</span>` : ""}${this.type}</div>
-                    ${(this.mods.length > 0) ? `<span class="exception-title dim">${this.mods}</span>` : ''}
-                    ${(this.mods.length > 0 && this.error) ? '<span class="dim">//</span>' : ''}
+                    ${([...this.mods].length > 0) ? `<span class="exception-title dim">${[...this.mods].map(mod => div(mod, "exception-mod"))}</span>` : ''}
+                    ${([...this.mods].length > 0 && this.error) ? '<span class="dim"></span>' : ''}
                     ${(this.error) ? `<span class="exception-title">${this.error}</span>` : ''}
                     ${(this.lines.length > 0)
                 ? `<div class="event-details event-hidden">
@@ -531,10 +596,16 @@ class ExceptionLine {
         this.address = address;
         this.filename = filename;
         this.line = line;
+        this.extraCount = 0;
         if (filename?.match(/<(.+)>/)) {
             this.filename = filename.match(/<(?<address>.+)>/).groups.address;
             this.line = -1;
         }
+    }
+
+    getNamespace() {
+        const funcSig = this.location.match(/(?<func>.+?) ?\((?<args>.+)?\)/);
+        return [...funcSig.groups.func.match(/(\w+(<.+?>)?)(?:[^:. ()]+)?/g)].slice(0, 2).join('.');
     }
 
     getPath() {
@@ -558,10 +629,10 @@ class ExceptionLine {
                             .replace(/\+|\\/, '.'))
                         .filter(portion => IGNORED_ARGS.indexOf(portion) == -1)
                         .map(portion => `<span class="arg dim">${portion}</span>`);
-                    portions.push(`<span class="arg">${argPortions[argPortions.length - 1]}</span>`);
+                    portions.push(`<span class="arg">${this.replaceArgTypes(argPortions[argPortions.length - 1])}</span>`);
                     return portions.join('') + (part.split(' ').length > 1 ? ` <span>${part.split(' ')[1]}</span>` : '');
                 } else {
-                    return `<span class="arg">${argPortions[0]}</span>${part.split(' ').length > 1 ? ` <span>${part.split(' ')[1]}</span>` : ''}`
+                    return `<span class="arg">${this.replaceArgTypes(argPortions[0])}</span>${part.split(' ').length > 1 ? ` <span>${part.split(' ')[1]}</span>` : ''}`
                 }
             });
             argsPart = argsPart.map(x => x.replace(/(\.\w+)/g, `<span class="arg">$1</span>`));
@@ -576,6 +647,10 @@ class ExceptionLine {
         return this.location;
     }
 
+    replaceArgTypes(arg) {
+        return ARG_REPLACEMENTS[arg.toLowerCase()] ?? arg;
+    }
+
     renderFilename() {
         return this.filename
             .replace(/\\/g, "/")
@@ -587,6 +662,7 @@ class ExceptionLine {
     }
 
     render() {
+        let path = this.getPath()
         return `<span class="dim">at </span><div class="exception-line">
                     <div class="exception-line-location" title="${this.address}">${this.getPath()}</div>
                     ${(this.filename != undefined && this.line >= 0)
@@ -595,6 +671,7 @@ class ExceptionLine {
                             </span>`)
                 : ""}
                 </div>`
+                + ((this.extraCount > 0) ? `<span></span><span class="dim italic">+ ${this.extraCount} more from <span class="code normal">${this.getNamespace()}</span></span>` : '');
     }
 }
 
@@ -640,7 +717,11 @@ function parse(lines) {
         line = line.replace('/', '\\');
         // determine state changes
         if (state == "exception") {
-            if (!line.startsWith('  at ')) {
+            if (match(line, /Parameter name: (?<parameter>.+)/, groups => {
+                if (exception)
+                    exception.error += " Parameter: " + `<code>${groups.parameter}</code>`
+            })) { }
+            else if (!line.match(/^(  at |Rethrow as )/)) {
                 // if line is not an exception, save it and reset to default:
                 if (exception != null) {
                     game.addException(exception);
@@ -675,6 +756,9 @@ function parse(lines) {
                 // Initial identification of mods
                 match(line, /\[ModManager\] Added valid mod folder: (?<folder>.+)\. Mod: (?<name>.+)/, groups => {
                     game.mods.push(new Mod(groups.folder, groups.name))
+                })
+                match(line, /Loaded mod catalog (?<name>.+) by (?<author>.+)/, groups => {
+                    game.findModByName(groups.name).author = groups.author;
                 })
 
                 // Match mod assembly
@@ -753,18 +837,32 @@ function parse(lines) {
                 match(line, /Player take possession of : (?<creature>.+)/, groups => {
                     game.addEvent('Player possessed Creature', undefined, { creature: groups.creature });
                 });
+
+                // Match hard crash
+                match(line, /Crash!!!/, () => {
+                    game.addEvent('Hard crash!', "Check the log for stack traces.<br>This may an underlying problem with your PC, or GPU drivers.", undefined, "#b96800");
+                })
                 break;
             case "exception":
                 match(line, /^(  at )?(\(wrapper (managed-to-native|dynamic-method)\) )?(?<location>[\w\.:`<>+/\[\]]+? ?\(.*?\)) ?((\[(?<address>0x[a-zA-Z0-9]+)\] in |\(at )(?<filename>.+):(?<line>\d+)\)?)?/, groups => {
+                    if (exception.lines.length > 0) {
+                        let lastLine = exception.lines[exception.lines.length - 1];
+                        let ignoreRegex = /^(?<namespace>Unity|DelegateList|ONSPAudioSource|SteamVR|OVR|OculusVR|System|\(wrapper|Valve|delegate|MonoBehaviourCallbackHooks|Newtonsoft)\.(?<subName>\w+)/;
+                        let match = lastLine.location.match(ignoreRegex);
+                        if (match && groups.location.startsWith(match.groups.namespace + '.' + match.groups.subName)) {
+                            lastLine.extraCount++;
+                            return;
+                        }
+                    }
                     exception.lines.push(
                         new ExceptionLine(
                             groups.location,
                             groups.address,
                             groups.filename,
                             groups.line));
-                    if (groups.location.match(/__instance|Prefix|Postfix/))
+                    if (groups.location.match(/__instance|Prefix|Postfix|_Patch(\d+)/))
                         exception.tags.add("harmony");
-                    if (!groups.location.match(/^(ThunderRoad|Unity|DelegateList|ONSPAudioSource|SteamVR|OVR|OculusVR|System|\(wrapper|Valve|delegate|MonoBehaviourCallbackHooks|Newtonsoft)/)) {
+                    if (!groups.location.match(/^(ThunderRoad|Unity|DelegateList|ONSPAudioSource|SteamVR|OVR|OculusVR|System|\(wrapper|Valve|delegate|MonoBehaviourCallbackHooks|Newtonsoft|TMPro|UsingTheirs)/)) {
                         let match = groups.location.match(/^(?<namespace>(\w|\+)+)\./)
                         if (match != null)
                             exception.mods.add(match.groups.namespace);
@@ -801,5 +899,30 @@ function matchSystemInfo(line) {
     });
     match(line, /Initialize engine version: (?<version>.+)/, groups => {
         game.system.build_number = groups.version;
+    });
+    match(line, /Device model : (?<model>.+)/, groups => {
+        game.system.hmd_model = groups.model;
+        if (groups.model == "Miramar")
+            game.system.hmd_model += " (Quest 2)";
+    });
+    match(line, /HeadDevice: (?<model>.+)/, groups => {
+        game.system.hmd_model = groups.model;
+        if (groups.model == "Miramar")
+            game.system.hmd_model += " (Quest 2)";
+    });
+    match(line, /LoadedDeviceName : (?<device>.+)/, groups => {
+        game.system.hmd = groups.device;
+    });
+    match(line, /Loader: (?<device>.+) \|/, groups => {
+        game.system.hmd = groups.device;
+    });
+    match(line, / +Renderer: +(?<gpu>.+)( \(ID=.+\))/, groups => {
+        game.system.gpu = groups.gpu;
+    });
+    match(line, / +VRAM: +(?<vram>\d+ MB)/, groups => {
+        game.system.gpu_vram = groups.vram;
+    });
+    match(line, / +Driver: +(?<driver>.+)/, groups => {
+        game.system.gpu_driver = groups.driver;
     });
 }

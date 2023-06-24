@@ -18,7 +18,7 @@ h1 {
 }
 
 h2, h3 {
-    margin-top: 0;
+    margin: 10px 0;
     position: relative;
 }
 
@@ -44,7 +44,6 @@ main {
     padding: 10px;
     box-sizing: border-box;
     height: 100vh;
-    margin-bottom: 20px;
     display: flex;
     flex-direction: column;
 }
@@ -123,6 +122,10 @@ hr {
     font-family: "Fira Code", monospace;
 }
 
+.bold {
+    font-weight: bold;
+}
+
 .selector-title {
     font-weight: bold;
 }
@@ -133,6 +136,10 @@ hr {
     align-items: center;
     margin-top: 6px;
     justify-self: center;
+}
+
+.pad {
+    margin: 5px;
 }
 
 .cause, .solution {
@@ -212,6 +219,8 @@ pre#directory, pre.directory {
 }
 
 #mod-details {
+    display: flex;
+    flex-direction: column;
     flex-grow: 1;
     text-align: left;
     padding: 20px;
@@ -301,6 +310,11 @@ pre#directory, pre.directory {
 
 .normal {
     font-family: "Roboto", sans-serif;
+    font-style: normal;
+}
+
+.extra-space {
+    margin-left: 5px;
 }
 
 .line-left {
@@ -337,6 +351,13 @@ pre#directory, pre.directory {
     max-height: 0;
     transition: max-height 0.2s ease-in-out;
     overflow-y: hidden;
+}
+
+.exception-mod {
+    background-color: rgba(0, 0, 0, 0.1);
+    padding: 5px;
+    border-radius: 5px;
+    font-style: normal;
 }
 
 .load-error {
@@ -537,6 +558,10 @@ span.prefix {
     position: relative;
 }
 
+table.auto-table tr td:first-child {
+    width: 150px;
+}
+
 .table-wrapper {
     width: 80%;
     max-height: 700px;
@@ -550,8 +575,9 @@ span.prefix {
 
 table {
     border-collapse: collapse;
-    width: 100%;
     border-spacing: 0 10px;
+    margin: 10px;
+    box-sizing: border-box;
 }
 
 tr {
@@ -567,11 +593,11 @@ tr:not(:last-of-type) td {
 }
 th {
     border-bottom: 2px solid #bbbbbb;
-    font-weight: normal;
+    font-weight: bold;
     padding: 5px;
 }
 td {
-    padding: 5px;
+    padding: 10px;
 }
 p {
     margin: 0;
