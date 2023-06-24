@@ -1,3 +1,4 @@
+const WARN = "#b96800";
 const fileInput = document.querySelector("#file-input");
 const fileClickInput = document.getElementById("file-click-input");
 fileInput.addEventListener("dragenter", (_) => {
@@ -131,14 +132,17 @@ class LoadedDLL {
 }
 
 class GlobalEvent {
-    constructor(text) {
+    constructor(text, description, color) {
+        this.color = color ?? "#338833";
         this.text = text;
+        this.description = description;
         this.eventType = "global";
     }
 
     render() {
-        return `<div class="global event">
+        return `<div class="global event" style="background-color: ${this.color}">
                     <div class="event-title">${this.text}</div>
+                    ${(this.description === undefined) ? '' : `<div class="event-details">${this.description}</div>`}
                 </div>`
     }
 }
@@ -230,6 +234,7 @@ class ExceptionLine {
 
 class Block {
     constructor(string) {
+        let isStackTrace = false;
         let isException = false;
         let exceptionType = "";
         let exceptionError = "";
@@ -293,6 +298,9 @@ class Block {
             checkLine(line, /JSON loader - Loading custom file: (?<modFolder>.+?)\\/, groups => {
                 gameInfo.mods.push(groups.modFolder);
                 gameInfo.mods = [...new Set(gameInfo.mods)];
+            });
+            checkLine(line, /Crash!!!/, () => {
+                gameInfo.events.push(new GlobalEvent("Hard crash!", "Check the log for stack traces.<br>This is likely an underlying problem with your PC, or GPU drivers.", WARN))
             });
             checkLine(line, /^(?<exceptionType>\w*Exception)(: (?<error>.+))?$/, groups => {
                 isException = true;
@@ -403,6 +411,9 @@ class Block {
                 gameInfo.events.push(new LogException(exceptionType, exceptionError, exceptionLines, exceptionTags, modsMentioned));
                 isException = false;
             }
+            checkLine(line, /========== OUTPUTTING STACK TRACE ==================/, () => {
+                isStackTrace = true;
+            });
         }
         if (isException) {
             exceptionTags.add(exceptionIsModded ? "modded" : "unmodded");
