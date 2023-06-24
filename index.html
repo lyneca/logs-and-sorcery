@@ -23,10 +23,19 @@
 
     <body>
         <h1>Logs &amp; Sorcery</h1>
-        <div class="main">
+        <main>
             <div id="file-input">DROP LOG FILE HERE</div>
-        </div>
+            <div class="help">
+                <p>Your log file can be found here:</p>
+                <pre>%userprofile%\AppData\LocalLow\WarpFrog\BladeAndSorcery</pre>
+                <p>or</p>
+                <pre>C:\Users\[your username]\AppData\LocalLow\WarpFrog\BladeAndSorcery</pre>
+                <p>Go to that folder in your file explorer, and drag the file <code>Player.log</code> into the box above.</p>
+            </div>
+        </main>
         <div id="output" class="hidden">
+            <hr>
+            <section>
             <h2>Info</h2>
             <div class="tag-list" id="info">
                 <span class="game-info" id="version"></span>
@@ -35,17 +44,26 @@
                 <span class="game-info" id="hmd"></span>
                 <span class="game-info" id="model"></span>
             </div>
+            </section>
+            <section>
             <h2>Mods Installed</h2>
             <div class="tag-list" id="mods"></div>
+            </section>
+            <section>
             <h2>Mod Load Errors</h2>
             <div id="load-errors"></div>
+            </section>
+            <section>
             <h2>Events</h2>
             <div id="events"></div>
+            </section>
+            <section>
             <h2>Exception Analysis</h2>
             <div id="exceptions"><i>Coming soon!</i>
                 <!-- <canvas id="exception-types" width="200" height="200"></canvas> -->
                 <!-- <canvas id="exception-mods" width="200" height="200"></canvas> -->
             </div>
+            </section>
 
         </div>
         <script src="https://cdn.jsdelivr.net/npm/chart.js@3.3.0/dist/chart.min.js"></script>

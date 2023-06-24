@@ -15,6 +15,23 @@ fileInput.addEventListener("drop", e => {
     loadFile(e.dataTransfer.files[0])
 });
 
+function escapeHTML(str){
+    var p = document.createElement("p");
+    p.appendChild(document.createTextNode(str));
+    return p.innerHTML;
+}
+
+String.prototype.hashCode = function() {
+  var hash = 0, i, chr;
+  if (this.length === 0) return hash;
+  for (i = 0; i < this.length; i++) {
+    chr   = this.charCodeAt(i);
+    hash  = ((hash << 5) - hash) + chr;
+    hash |= 0; // Convert to 32bit integer
+  }
+  return hash;
+};
+
 class GameInfo {
     version = "";
     build = "";
@@ -28,7 +45,7 @@ class GameInfo {
 
 function checkLine(string, regex, callback) {
     let match = string.match(regex);
-    if (match) {
+if (match) {
         callback(match.groups);
     }
 }
@@ -45,10 +62,13 @@ class LoadError {
 class GlobalEvent {
     constructor(text) {
         this.text = text;
+        this.eventType = "global";
     }
 
     render() {
-        return `<div class="global event">${this.text}</div>`
+        return `<div class="global event">
+                    <div class="event-title">${this.text}</div>
+                </div>`
     }
 }
 
@@ -57,10 +77,21 @@ class LogException {
         this.type = type;
         this.error = error;
         this.lines = lines;
+        this.count = 0;
+        this.eventType = "exception";
     }
 
     render() {
-        return `<div class="exception event">${this.type}</div>`
+        return `<div class="exception event" onclick="expandException(this)">
+                    ${(this.count > 1) ? `<span class="dim count">${this.count}x</span>` : ""}
+                    <div class="event-title">${this.type}</div>
+                    ${(this.error) ? `<span class="exception-title">${this.error}</span>` : ''}
+                    ${(this.lines.length > 0)
+                        ? `<div class="event-details event-hidden">
+                           <div class="exception-lines">${this.lines.map(line => line.render()).join("")}</div>
+                           </div>`
+                        : ''}
+                </div>`
     }
 }
 
@@ -70,6 +101,40 @@ class ExceptionLine {
         this.address = address;
         this.filename = filename;
         this.line = line;
+        if (filename?.match(/<(.+)>/)) {
+            this.filename = filename.match(/<(?<address>.+)>/).groups.address;
+            this.line = -1;
+        }
+    }
+
+    getPath() {
+        const funcSig = this.location.match(/(?<func>.+?) \((?<args>.+)?\)/);
+        if (funcSig) {
+            const funcPart = [...funcSig.groups.func.matchAll(/<?(\w+)>?(?:[^. ()]+)?/g)].map(x => `${x[1]}`).join(`<span class="dim"> > </span>`);
+            let argsPart = [];
+            if (funcSig.groups.args)
+                argsPart = [...funcSig.groups.args.matchAll(/(?:([^`, ]+)[^, ]* ([^`, ]+)[^ ,]*)/g)].map(x => `${x[1]} ${x[2]}`);
+            let argsString = "";
+            argsPart = argsPart.map(x => x.replace(/(\.?\w+)/g, `<span class="arg">$1</span>`));
+            //if (argsPart.length > 1) {
+            //    argsString = argsPart.join(`,<br>${funcPart.replace(/./g, "&nbsp")} `);
+            //} else {
+                argsString = argsPart.join(`<span class="dim">, </span>`);
+            //}
+            return `${funcPart} <span class="dim">(</span>${argsString}<span class="dim">)</span>`;
+        }
+        return this.location;
+    }
+
+    render() {
+        return `<span class="dim">at </span><div class="exception-line">
+                    <div class="exception-line-location" title="${this.address}">${this.getPath()}</div>
+                    ${(this.filename != undefined)
+                        ? (`<span class="prefix dim">=></span>
+                            ${(this.line >= 0) ? `<span class="dim">line <span class="exception-line-line">${this.line}</span> of </span>` : ''}
+                            <span class="exception-line-filename dim">${this.filename}</span>`)
+                        : ""}
+                </div>`
     }
 }
 
@@ -106,12 +171,12 @@ class Block {
                 gameInfo.mods.push(groups.modFolder);
                 gameInfo.mods = [...new Set(gameInfo.mods)];
             });
-            checkLine(line, /(?<exceptionType>\w*Exception): (?<error>.+)/, groups => {
+            checkLine(line, /^(?<exceptionType>\w*Exception)(: (?<error>.+))?$/, groups => {
                 isException = true;
                 exceptionType = groups.exceptionType;
                 exceptionError = groups.error;
             });
-            checkLine(line, /  at (?<location>.+?) \[(?<address>0x[a-zA-Z0-9]+)\] in (?<filename>.+):(?<line>\d+)/, groups => {
+            checkLine(line, /^  at (\(wrapper managed-to-native\) )?(?<location>.+\(.*\)) ?(\[(?<address>0x[a-zA-Z0-9]+)\] in (?<filename>.+):(?<line>\d+))?/, groups => {
                 if (isException) {
                     exceptionLines.push(
                         new ExceptionLine(
@@ -133,6 +198,9 @@ class Block {
             checkLine(line, /Master level loaded/, () => {
                 gameInfo.events.push(new GlobalEvent("Master level loaded"));
             });
+            checkLine(line, /Game loaded/, () => {
+                gameInfo.events.push(new GlobalEvent("Game loaded"));
+            });
             checkLine(line, /Player take possession of/, () => {
                 gameInfo.events.push(new GlobalEvent("Player possessed creature"));
             });
@@ -143,6 +211,29 @@ class Block {
         if (isException)
             gameInfo.events.push(new LogException(exceptionType, exceptionError, exceptionLines));
     }
+}
+
+function checkExceptionDupes() {
+    const collapsedEvents = [];
+    let lastEvent = null;
+    let lastEventHash = "";
+    gameInfo.events.forEach(event => {
+        if (event.eventType == "exception") {
+            const json = JSON.stringify(event);
+            if (json != lastEventHash) {
+                lastEventHash = json;
+                lastEvent = event;
+                lastEvent.count = 0;
+                collapsedEvents.push(event);
+            } else {
+                lastEvent.count++;
+            }
+        } else {
+            collapsedEvents.push(event);
+            lastEventHash = "";
+        }
+    });
+    gameInfo.events = collapsedEvents;
 }
 
 function loadFile(file) {
@@ -157,6 +248,7 @@ function analyseFile(log) {
     for (const block of log.split("\r\n\r\n")) {
         blocks.push(new Block(block));
     }
+    checkExceptionDupes();
     console.log(gameInfo);
     display();
 }
@@ -197,7 +289,7 @@ function displayLoadErrors() {
         <h3 class="load-error-name" onclick="expandLoadErrorCategory(this)"><span class="load-error-count">${gameInfo.loadErrors[key].length}</span>${key}</h3>
             <div class="load-error-list">
                 ${gameInfo.loadErrors[key].map(error => `<div class="load-error" onclick="expandLoadError(this)">
-                    <span class="load-error-file">${error.file.replace(/\\/g, " > ")}</span>
+                    <span class="load-error-file">${error.file.replace(/\\/g, `<span class="dim"> > </span>`)}</span>
                     <span class="load-error-error">${error.error}</span></div>`).join("")}
             </div>
         </div>`
@@ -211,6 +303,17 @@ function displayEvents() {
         .join('');
 }
 
+function expandException(elem) {
+    let error = elem.querySelector(".event-details");
+    if (error == null)
+        return;
+    if (!error.classList.contains("event-hidden")) {
+        error.classList.add("event-hidden");
+    } else {
+        error.classList.remove("event-hidden");
+    }
+}
+
 function expandLoadErrorCategory(elem) {
     let error = elem.parentElement.querySelector(".load-error-list");
     if (!error.classList.contains("category-expanded")) {
@@ -219,6 +322,7 @@ function expandLoadErrorCategory(elem) {
         error.classList.remove("category-expanded");
     }
 }
+
 function expandLoadError(elem) {
     let error = elem.querySelector(".load-error-error");
     if (!error.classList.contains("expanded")) {
@@ -229,7 +333,6 @@ function expandLoadError(elem) {
 }
 
 /*
-
 const exceptionsByTypeCtx = document.getElementById('exception-types').getContext('2d');
 const exceptionsByType = new Chart(exceptionsByTypeCtx, {
     type: 'doughnut',
