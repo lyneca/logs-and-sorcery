@@ -286,7 +286,7 @@ class Block {
         let modsMentioned = new Set();
         let isExceptionLine = false;
         let bundleLoadErrors = {}
-        for (let line of string.split("\r\n")) {
+        for (let line of string.split("\n")) {
             line = line.replace(/\//g, '\\');
             isExceptionLine = false;
             checkLine(line, /Mono path\[0\] = '(?<path>.+)'$/, groups => {
@@ -519,7 +519,14 @@ function loadFile(file) {
 
 function analyseFile(log) {
     const blocks = [];
-    for (const block of log.split("\r\n\r\n")) {
+
+    log = log.replace(/\r\n/g, "\n")
+        .split(/\n/)
+        .map(line => line.replace(/^\d+-\d+ \d+:\d+:\d+.\d+\s+\d+\s+\d+ [A-Z] Unity\s+: /g, ''))
+        .join('\n')
+        .split(/\n\n/);
+
+    for (const block of log) {
         blocks.push(new Block(block));
     }
     checkExceptionDupes();
