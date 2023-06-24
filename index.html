@@ -22,6 +22,14 @@
         <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300&family=Roboto&display=swap" rel="stylesheet"> 
         <link rel="stylesheet" href="style.css">
         <link rel="stylesheet" href="hint.css">
+        <!-- Global site tag (gtag.js) - Google Analytics -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-NNSE7T1WQY"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){ dataLayer.push(arguments); }
+            gtag('js', new Date());
+            gtag('config', 'G-NNSE7T1WQY');
+        </script>
     </head>
 
     <body>
@@ -126,21 +134,21 @@
         <script src="index.js"></script>
         <script>
             window.addEventListener('load', () => {
-                registerSW();
-            });
+                            registerSW();
+                        });
 
-            // Register the Service Worker
-            async function registerSW() {
-                if ('serviceWorker' in navigator) {
-                    try {
-                        await navigator
-                            .serviceWorker
-                            .register('service-worker.js');
-                    } catch (e) {
-                        console.log('SW registration failed', e);
-                    }
-                }
-            }
+                        // Register the Service Worker
+                        async function registerSW() {
+                                        if ('serviceWorker' in navigator) {
+                                                        try {
+                                                                        await navigator
+                                                                            .serviceWorker
+                                                                            .register('service-worker.js');
+                                                                    } catch (e) {
+                                                                                    console.log('SW registration failed', e);
+                                                                                }
+                                                    }
+                                    }
         </script>
     </body>
 </html>
