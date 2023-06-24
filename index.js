@@ -24,21 +24,21 @@ fileClickInput.addEventListener("change", e => {
     loadFile(e.target.files[0])
 });
 
-function escapeHTML(str){
+function escapeHTML(str) {
     var p = document.createElement("p");
     p.appendChild(document.createTextNode(str));
     return p.innerHTML;
 }
 
-String.prototype.hashCode = function() {
-  var hash = 0, i, chr;
-  if (this.length === 0) return hash;
-  for (i = 0; i < this.length; i++) {
-    chr   = this.charCodeAt(i);
-    hash  = ((hash << 5) - hash) + chr;
-    hash |= 0; // Convert to 32bit integer
-  }
-  return hash;
+String.prototype.hashCode = function () {
+    var hash = 0, i, chr;
+    if (this.length === 0) return hash;
+    for (i = 0; i < this.length; i++) {
+        chr = this.charCodeAt(i);
+        hash = ((hash << 5) - hash) + chr;
+        hash |= 0; // Convert to 32bit integer
+    }
+    return hash;
 };
 
 class GameInfo {
@@ -193,10 +193,10 @@ class LogException {
                     <div class="event-title">${this.type}</div>
                     ${(this.error) ? `<span class="exception-title">${this.error}</span>` : ''}
                     ${(this.lines.length > 0)
-                        ? `<div class="event-details event-hidden">
+                ? `<div class="event-details event-hidden">
                            <div class="exception-lines">${this.lines.map(line => line.render()).join("")}</div>
                            </div>`
-                        : ''}
+                : ''}
                 </div>`
     }
 }
@@ -232,8 +232,8 @@ class ExceptionLine {
                         .slice(0, argPortions.length - 1)
                         .map(portion => portion
                             .replace(/\+|\\/, '.'))
-                            .filter(portion => ignoredArgs.indexOf(portion) == -1)
-                            .map(portion => `<span class="arg dim">${portion}</span>`);
+                        .filter(portion => ignoredArgs.indexOf(portion) == -1)
+                        .map(portion => `<span class="arg dim">${portion}</span>`);
                     portions.push(`<span class="arg">${argPortions[argPortions.length - 1]}</span>`);
                     return portions.join('') + (part.split(' ').length > 1 ? ` <span>${part.split(' ')[1]}</span>` : '');
                 } else {
@@ -266,10 +266,10 @@ class ExceptionLine {
         return `<span class="dim">at </span><div class="exception-line">
                     <div class="exception-line-location" title="${this.address}">${this.getPath()}</div>
                     ${(this.filename != undefined && this.line >= 0)
-                        ? (`<span><span class="prefix dim">=></span>
+                ? (`<span><span class="prefix dim">=></span>
                             <span><span class="dim code">line</span> <span class="exception-line-line">${this.line}</span> <span class="dim code">of</span> </span><span class="exception-line-filename">${this.renderFilename()}</span>
                             </span>`)
-                        : ""}
+                : ""}
                 </div>`
     }
 }
@@ -603,14 +603,14 @@ function displayLoadErrors() {
 }
 
 function displayMissingAddresses() {
-    document.querySelector('#missing-addresses').innerHTML = "<tr><th>Address / Location</th><th>Type</th><th>Requester</th><th>Requester Type</th></tr>" + 
+    document.querySelector('#missing-addresses').innerHTML = "<tr><th>Address / Location</th><th>Type</th><th>Requester</th><th>Requester Type</th></tr>" +
         gameInfo.missingAddresses.map(
             data => `<tr class="missing-address-row"><td class="code">${data.id}</td><td class="dim code">${data.type}</td><td class="dim code">${data.requester}</td><td class="dim code">${data.requesterType}</td></tr>`
         ).join('');
 }
 
 function displayMissingCatalogData() {
-    document.querySelector('#missing-data').innerHTML = "<tr><th>Catalog ID</th><th>Type</th></tr>" + 
+    document.querySelector('#missing-data').innerHTML = "<tr><th>Catalog ID</th><th>Type</th></tr>" +
         gameInfo.missingCatalogData.map(
             data => `<tr><td class="code">${data.id}</td><td class="code dim">${data.type}</td></tr>`
         ).join('');
@@ -632,7 +632,7 @@ function displaySummary() {
     document.querySelector('#summary').innerHTML = Array
         .from(gameInfo.summaries)
         .map(tag =>
-        `<div class="summary-item" style="background-color: ${summaries[tag].color ?? "#4a4a5a"}">
+            `<div class="summary-item" style="background-color: ${summaries[tag].color ?? "#4a4a5a"}">
             <i class="icofont-exclamation-circle summary-icon"></i>
             <div class="cause">${summaries[tag].cause()}</div>
             <div class="solution"><span class="dim">Solution:</span><span>${summaries[tag].solution()}</span></div>
