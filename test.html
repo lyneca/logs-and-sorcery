@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <!-- Responsive -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+    <!-- Title -->
+    <title>Logs &amp; Sorcery</title>
+
+    <!-- Meta Tags requred for Progressive Web App -->
+    <meta name="apple-mobile-web-app-status-bar" content="#aa7700">
+    <meta name="theme-color" content="black">
+
+    <!-- Manifest File link -->
+    <link rel="manifest" href="manifest.json">
+
+    <link rel="stylesheet" href="icofont.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300&family=Nova+Cut&family=Roboto&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="hint.css">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-NNSE7T1WQY"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.0/FileSaver.min.js" integrity="sha512-csNcFYJniKjJxRWRV1R7fvnXrycHP6qDR21mgz1ZP55xY5d+aHLfo9/FcGDQLfn2IfngbAHd8LdfsagcCqgTcQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="http://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'G-NNSE7T1WQY');
+    </script>
+</head>
+
+<body>
+    <input type="file" id="file-click-input" style="position:fixed;top:-1000px"></input>
+    <main>
+        <h1>Logs &amp; Sorcery</h1>
+        <div id="file-input">DROP LOG FILE HERE</div>
+        <div class="help">
+            <p>Your log file can be found here:</p>
+            <pre>C:\Users\[your username]\AppData\LocalLow\WarpFrog\BladeAndSorcery</pre>
+            or
+            <pre>%userprofile%\AppData\LocalLow\WarpFrog\BladeAndSorcery</pre>
+            <p>Go to that folder in your file explorer, and drag the file <code>Player.log</code> into the box above.
+            <em>Note: Log files are overwritten every time you run the game.</em></p>
+        </div>
+        <div class="hsep"></div>
+        <section class="analysis">
+            <div id="mod-list">
+
+            </div>
+            <div class="vsep"></div>
+            <div id="mod-details">
+            </div>
+        </section>
+    </main>
+    <script src="parse.js"></script>
+</body>
+
+</html>
