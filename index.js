@@ -53,6 +53,7 @@ class GameInfo {
     mods = [];
     events = [];
     loadErrors = {};
+    loadedDLLs = [];
     incompatibleMods = {};
     missingAddresses = []
     missingCatalogData = [];
@@ -62,7 +63,7 @@ class GameInfo {
 
 let tags = {
     unmodded: { icon: "info-circle", text: "This exception traceback does not mention any modded code.<br><br>It may be a base-game issue, but more likely it's the game reacting poorly to something a mod has done." },
-    modded: { icon: "plugin", text: "This exception may come from modded code." },
+    modded: { icon: "plugin", text: "This exception likely comes from modded code." },
     harmony: { icon: "screw-driver", text: "This exception likely comes from code injected using Harmony." },
 }
 
@@ -74,7 +75,7 @@ let summaries = {
     },
     incompatibleMods: {
         cause: () => "One or more of your mods is not compatible with your game version.",
-        solution: () => "See the 'Incompatible Mods' section below to see which mods aren't up to date."
+        solution: () => "Head to the 'Incompatible Mods' section below to see which mods aren't up to date."
     },
     brokenMods: {
         cause: () => `The following mods encountered errors: <ul>${Array.from(gameInfo.brokenMods).map(mod => `<li>${mod}</li>`).join('')}</ul>`,
@@ -92,10 +93,11 @@ function checkLine(string, regex, callback) {
 let gameInfo = new GameInfo();
 
 class MissingAddressError {
-    constructor(id, object, type) {
+    constructor(id, type, requester, requesterType) {
         this.id = id;
-        this.object = object;
         this.type = type;
+        this.requester = requester;
+        this.requesterType = requesterType;
     }
 }
 
@@ -118,6 +120,13 @@ class LoadError {
     constructor(file, error) {
         this.file = file;
         this.error = error;
+    }
+}
+
+class LoadedDLL {
+    constructor(modFolder, dllName) {
+        this.modFolder = modFolder;
+        this.dllName = dllName;
     }
 }
 
@@ -228,7 +237,9 @@ class Block {
         let exceptionIsModded = false;
         let exceptionTags = new Set();
         let modsMentioned = new Set();
+        let isExceptionLine = false;
         for (let line of string.split("\r\n")) {
+            isExceptionLine = false;
             checkLine(line, /Mono path\[0\] = '(?<path>.+)'$/, groups => {
                 gameInfo.gameDir = groups.path;
             });
@@ -247,6 +258,9 @@ class Block {
             });
             checkLine(line, /Initialize engine version: (?<version>.+)/, groups => {
                 gameInfo.build = groups.version;
+            });
+            checkLine(line, /Loading plugin assembly .+BladeAndSorcery_Data[\\/]StreamingAssets[\\/]Mods[\\/](?<dirName>[^/\\]+)[\\/](.+[\\/])*(?<dllName>[^/\\]+).dll/, groups => {
+                gameInfo.loadedDLLs.push(new LoadedDLL(groups.dirName, groups.dllName));
             });
             checkLine(line, /Device model : (?<model>.+)/, groups => {
                 gameInfo.hmdModel = groups.model;
@@ -283,7 +297,19 @@ class Block {
                 exceptionError = groups.error;
                 exceptionTags = new Set();
                 modsMentioned = new Set();
+                exceptionLines = [];
                 exceptionIsModded = false;
+                isExceptionLine = true;
+            });
+            checkLine(line, /Number of parameters specified does not match the expected number./, () => {
+                isException = true;
+                exceptionType = "Incorrect Parameter Count";
+                exceptionError = "Number of parameters specified does not match the expected number.";
+                exceptionTags = new Set();
+                modsMentioned = new Set();
+                exceptionLines = [];
+                exceptionIsModded = false;
+                isExceptionLine = true;
             });
             checkLine(line, /Unable to open archive file: (?<file>.+StreamingAssets\/Mods\/(?<mod>.+)(\/.+)?\/(?<bundle>.+).bundle)/, groups => {
                 if (!gameInfo.loadErrors[groups.mod]) {
@@ -306,6 +332,7 @@ class Block {
                         modsMentioned.add(match.groups.namespace);
                         exceptionIsModded = true;
                     }
+                    isExceptionLine = true;
                 }
             });
             checkLine(line, /Mod (?<mod>.+) for \((?<version>.+)\) is not compatible with current min mod version (?<minVersion>.+)/, groups => {
@@ -318,8 +345,8 @@ class Block {
                 }
                 gameInfo.loadErrors[groups.modFolder].push(new LoadError(groups.file, groups.error));
             });
-            checkLine(line, /Address \[(?<id>.+?)\] not found for object \[(?<object>.+?) \((?<type>.+)\)\]/, groups => {
-                gameInfo.missingAddresses.push(new MissingAddressError(groups.id, groups.object, groups.type));
+            checkLine(line, /Address \[(?<id>.+?)\] not found for object \[(?<object>.+?)( \((?<type>.+)\))?\]/, groups => {
+                gameInfo.missingAddresses.push(new MissingAddressError(groups.id, "", groups.object, groups.type ?? ""));
             });
             checkLine(line, /Data \[(?<id>.+?) \| -?\d+\] of type \[(?<dataType>.+?)\] cannot be found in catalog/, groups => {
                 if (groups.id != "null")
@@ -343,6 +370,30 @@ class Block {
             checkLine(line, /Game is quitting/, () => {
                 gameInfo.events.push(new GlobalEvent('Game is quitting'));
             });
+            checkLine(line, /The AssetBundle 'StreamingAssets\\Mods\\(?<modFolder>[^\\]+)\\(?<bundleName>.+).bundle' (?<reason>.+)/, groups => {
+                if (!gameInfo.loadErrors[groups.modFolder]) {
+                    gameInfo.loadErrors[groups.modFolder] = [];
+                }
+                gameInfo.loadErrors[groups.modFolder].push(new LoadError(groups.bundleName + '.bundle', "Bundle " + groups.reason));
+            });
+            checkLine(line, /Invalid path in AssetBundleProvider: '(.+\/StreamingAssets\\Mods\\(?<modFolder>[^\\]+)\\(?<bundleName>.+))\.bundle'\.$/, groups => {
+                if (!gameInfo.loadErrors[groups.modFolder]) {
+                    gameInfo.loadErrors[groups.modFolder] = [];
+                }
+                if (gameInfo.loadErrors[groups.modFolder].find(elem => elem.file) == undefined)
+                    gameInfo.loadErrors[groups.modFolder].push(new LoadError(groups.bundleName + '.bundle', "Could not load asset bundle."));
+            });
+            checkLine(line, /Unable to find asset at ress?ource location \[(?<location>.+)\] of type \[(?<dataType>.+)\] for object \[(?<requester>.+) \((?<requesterType>.+)\)\]/, groups => {
+                gameInfo.missingAddresses.push(new MissingAddressError(groups.location, groups.dataType, groups.requester, groups.requesterType))
+            });
+            if (isException && !isExceptionLine) {
+                exceptionTags.add(exceptionIsModded ? "modded" : "unmodded");
+                Array.from(modsMentioned).forEach(mod => gameInfo.brokenMods.add(mod));
+                if (exceptionIsModded)
+                    gameInfo.summaries.add("brokenMods");
+                gameInfo.events.push(new LogException(exceptionType, exceptionError, exceptionLines, exceptionTags, modsMentioned));
+                isException = false;
+            }
         }
         if (isException) {
             exceptionTags.add(exceptionIsModded ? "modded" : "unmodded");
@@ -463,9 +514,9 @@ function displayLoadErrors() {
 }
 
 function displayMissingAddresses() {
-    document.querySelector('#missing-addresses').innerHTML = "<tr><th>Address</th><th>Catalog ID</th><th>Type</th></tr>" + 
+    document.querySelector('#missing-addresses').innerHTML = "<tr><th>Address / Location</th><th>Type</th><th>Requester</th><th>Requester Type</th></tr>" + 
         gameInfo.missingAddresses.map(
-            data => `<tr class="missing-address-row"><td class="code">${data.id}</td><td class="dim code">${data.object}</td><td class="dim code">${data.type}</td></tr>`
+            data => `<tr class="missing-address-row"><td class="code">${data.id}</td><td class="dim code">${data.type}</td><td class="dim code">${data.requester}</td><td class="dim code">${data.requesterType}</td></tr>`
         ).join('');
 }
 

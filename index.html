@@ -102,7 +102,9 @@
                             <p>
                             Shows addresses referenced by JSON files that could not be found. These assets will not be able to load.
                             <br><br>
-                            This is an issue with the mod itself, not your installation - missing addresses, or possibly unused ones that haven't been cleaned up.
+                            This can an issue with the mod itself, not your installation - missing addresses, or possibly unused ones that haven't been cleaned up.
+                            <br><br>
+                            However you may also see errors here if you have accidentally installed a mod twice, or edited the JSON of a mod.
                             </p>
                         </div>
                     </h2>
@@ -124,21 +126,21 @@
         <script src="index.js"></script>
         <script>
             window.addEventListener('load', () => {
-                            registerSW();
-                        });
+                registerSW();
+            });
 
-                        // Register the Service Worker
-                        async function registerSW() {
-                                        if ('serviceWorker' in navigator) {
-                                                        try {
-                                                                        await navigator
-                                                                            .serviceWorker
-                                                                            .register('service-worker.js');
-                                                                    }
-                                                        catch (e) {
-                                                                        console.log('SW registration failed', e);
-                                                                    }
-                                                    }
-                                    }  </script>
+            // Register the Service Worker
+            async function registerSW() {
+                if ('serviceWorker' in navigator) {
+                    try {
+                        await navigator
+                            .serviceWorker
+                            .register('service-worker.js');
+                    } catch (e) {
+                        console.log('SW registration failed', e);
+                    }
+                }
+            }
+        </script>
     </body>
 </html>
