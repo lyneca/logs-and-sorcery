@@ -238,6 +238,7 @@ class Block {
         let exceptionTags = new Set();
         let modsMentioned = new Set();
         let isExceptionLine = false;
+        let hasSeenExceptionLine = false;
         for (let line of string.split("\r\n")) {
             isExceptionLine = false;
             checkLine(line, /Mono path\[0\] = '(?<path>.+)'$/, groups => {
@@ -300,6 +301,7 @@ class Block {
                 exceptionLines = [];
                 exceptionIsModded = false;
                 isExceptionLine = true;
+                hasSeenExceptionLine = false;
             });
             checkLine(line, /Number of parameters specified does not match the expected number./, () => {
                 isException = true;
@@ -310,6 +312,7 @@ class Block {
                 exceptionLines = [];
                 exceptionIsModded = false;
                 isExceptionLine = true;
+                hasSeenExceptionLine = false;
             });
             checkLine(line, /Unable to open archive file: (?<file>.+StreamingAssets\/Mods\/(?<mod>.+)(\/.+)?\/(?<bundle>.+).bundle)/, groups => {
                 if (!gameInfo.loadErrors[groups.mod]) {
@@ -333,6 +336,7 @@ class Block {
                         exceptionIsModded = true;
                     }
                     isExceptionLine = true;
+                    hasSeenExceptionLine = true;
                 }
             });
             checkLine(line, /Mod (?<mod>.+) for \((?<version>.+)\) is not compatible with current min mod version (?<minVersion>.+)/, groups => {
@@ -386,7 +390,7 @@ class Block {
             checkLine(line, /Unable to find asset at ress?ource location \[(?<location>.+)\] of type \[(?<dataType>.+)\] for object \[(?<requester>.+) \((?<requesterType>.+)\)\]/, groups => {
                 gameInfo.missingAddresses.push(new MissingAddressError(groups.location, groups.dataType, groups.requester, groups.requesterType))
             });
-            if (isException && !isExceptionLine) {
+            if (isException && !isExceptionLine && hasSeenExceptionLine) {
                 exceptionTags.add(exceptionIsModded ? "modded" : "unmodded");
                 Array.from(modsMentioned).forEach(mod => gameInfo.brokenMods.add(mod));
                 if (exceptionIsModded)
