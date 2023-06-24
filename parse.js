@@ -686,8 +686,8 @@ class Exception {
     this.mods.forEach((mod) => {
       let found =
         game.findModByNamespace(mod) ??
-        game.findModByAssembly(mod) ??
-        game.fuzzyFindMod(mod);
+        game.fuzzyFindMod(mod) ??
+        game.findModByAssembly(mod);
       if (found) {
         foundMods.add(found.name);
         game.mods
@@ -1094,7 +1094,9 @@ function parse(lines) {
             );
             game.addSuggestion(
               "incompatible",
-              `The mod ${code(groups.mod)} is for version ${code(groups.version)}, but the game is version ${code(groups.minVersion)}.`
+              `The mod ${code(groups.mod)} is for version ${code(
+                groups.version
+              )}, but the game is version ${code(groups.minVersion)}.`
             );
           }
         );
@@ -1216,7 +1218,7 @@ function parse(lines) {
               exception.tags.add("harmony");
             if (
               !groups.location.match(
-                /^(ThunderRoad|Unity|DelegateList|ONSPAudioSource|SteamVR|OVR|OculusVR|System|\(wrapper|Valve|delegate|MonoBehaviourCallbackHooks|Newtonsoft|TMPro|UsingTheirs)/
+                /^(ThunderRoad|Unity|DelegateList|RainyReignGames|ONSPAudioSource|SteamVR|OVR|OculusVR|System|\(wrapper|Valve|delegate|MonoBehaviourCallbackHooks|Newtonsoft|TMPro|UsingTheirs)/
               )
             ) {
               let match = groups.location.match(/^(?<namespace>(\w|\+)+)\./);
