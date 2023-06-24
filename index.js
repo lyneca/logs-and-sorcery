@@ -98,6 +98,10 @@ let summaries = {
     loadErrors: {
         cause: () => `The following mods did not load properly: <ul>${Array.from(Object.keys(gameInfo.loadErrors)).map(mod => `<li>${mod}</li>`).join('')}</ul>`,
         solution: () => `You may need to reinstall these mods if you want them to work.`
+    },
+    jsonVersionMismatch: {
+        cause: () => `One or more of your mods has a JSON version mismatch. The files that do not have the correct version will not be loaded.`,
+        solution: () => `Change the <code>"version":</code> key to the correct value.`
     }
 }
 
@@ -424,6 +428,13 @@ class Block {
                 exceptionLines = [];
                 exceptionIsModded = false;
                 isExceptionLine = true;
+            });
+            checkLine(line, /Version mismatch \(file (?<fileVersion>\d), current (?<currentVersion>\d)\) ignoring file: (?<path>.+StreamingAssets\\Mods\\(?<mod>[^\/]+)(\\.+)?\\(?<file>.+).json)/, groups => {
+                if (!gameInfo.loadErrors[groups.mod]) {
+                    gameInfo.loadErrors[groups.mod] = [];
+                }
+                gameInfo.loadErrors[groups.mod].push(new LoadError(groups.file + '.json', `<div>Version mismatch in </div><pre class="directory">${groups.path}</pre><br> The file has version <code>${groups.fileVersion}</code>, but it needs version <code>${groups.currentVersion}</code>.<br>This is likely an error with the mod itself, not your installation.`));
+                gameInfo.summaries.add("jsonVersionMismatch");
             });
             checkLine(line, /Unable to open archive file: (?<file>.+StreamingAssets\\Mods\\(?<mod>.+)(\\.+)?\\(?<bundle>.+).bundle)/, groups => {
                 if (!gameInfo.loadErrors[groups.mod]) {
