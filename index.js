@@ -90,6 +90,10 @@ let summaries = {
     brokenMods: {
         cause: () => `The following mods encountered errors: <ul>${Array.from(gameInfo.brokenMods).map(mod => `<li>${mod}</li>`).join('')}</ul>`,
         solution: () => `<span>There are more details in the exception logs below; look for the <i class="icofont-plugin"></i> icon and contact the developer of the mod.<span><br>`
+    },
+    loadErrors: {
+        cause: () => `The following mods did not load properly: <ul>${Array.from(Object.keys(gameInfo.loadErrors)).map(mod => `<li>${mod}</li>`).join('')}</ul>`,
+        solution: () => `You may need to reinstall these mods if you want them to work.`
     }
 }
 
@@ -270,7 +274,6 @@ class Block {
         let exceptionTags = new Set();
         let modsMentioned = new Set();
         let isExceptionLine = false;
-        let hasSeenExceptionLine = false;
         let bundleLoadErrors = {}
         for (let line of string.split("\r\n")) {
             line = line.replace(/\//g, '\\');
@@ -330,6 +333,8 @@ class Block {
                 gameInfo.events.push(new GlobalEvent("Hard crash!", "Check the log for stack traces.<br>This is likely an underlying problem with your PC, or GPU drivers.", WARN))
             });
             checkLine(line, /^(Exception in Update Loop: )?(System\.)?(?<exceptionType>(\w+\.)*\w*Exception)(: (?<error>.+))?$/, groups => {
+                // Skip dependency exceptions, they are covered by Mod Load Errors
+                if (groups.error !== undefined && groups.error.startsWith("Dependency Exception --->")) return;
                 isException = true;
                 exceptionType = groups.exceptionType;
                 exceptionError = groups.error;
@@ -338,7 +343,6 @@ class Block {
                 exceptionLines = [];
                 exceptionIsModded = false;
                 isExceptionLine = true;
-                hasSeenExceptionLine = false;
             });
             checkLine(line, /Number of parameters specified does not match the expected number./, () => {
                 isException = true;
@@ -349,15 +353,15 @@ class Block {
                 exceptionLines = [];
                 exceptionIsModded = false;
                 isExceptionLine = true;
-                hasSeenExceptionLine = false;
             });
             checkLine(line, /Unable to open archive file: (?<file>.+StreamingAssets\\Mods\\(?<mod>.+)(\\.+)?\\(?<bundle>.+).bundle)/, groups => {
                 if (!gameInfo.loadErrors[groups.mod]) {
                     gameInfo.loadErrors[groups.mod] = [];
                 }
-                gameInfo.loadErrors[groups.mod].push(new LoadError(groups.bundle + '.bundle', `Unable to open archive file: <pre class="directory">${groups.file}</pre><br>This is a mod installation issue, so try re-installing. It can also happen if you use Vortex and forget to enable and deploy your mods.`));
+                gameInfo.loadErrors[groups.mod].push(new LoadError(groups.bundle + '.bundle', `<div>Unable to open archive file:</div><pre class="directory">${groups.file}</pre><br>This is a mod installation issue, so try re-installing. It can also happen if you use Vortex and forget to enable and deploy your mods.`));
+                gameInfo.summaries.add("loadErrors");
             });
-            checkLine(line, /^(  at )?(\(wrapper (managed-to-native|dynamic-method)\) )?(?<location>.+?\(.*?\)) ?((\[(?<address>0x[a-zA-Z0-9]+)\] in |\(at )(?<filename>.+):(?<line>\d+)\)?)?/, groups => {
+            checkLine(line, /^(  at )?(\(wrapper (managed-to-native|dynamic-method)\) )?(?<location>[\w\.:`<>+/\[\]]+? ?\(.*?\)) ?((\[(?<address>0x[a-zA-Z0-9]+)\] in |\(at )(?<filename>.+):(?<line>\d+)\)?)?/, groups => {
                 if (isException) {
                     exceptionLines.push(
                         new ExceptionLine(
@@ -374,7 +378,12 @@ class Block {
                         exceptionIsModded = true;
                     }
                     isExceptionLine = true;
-                    hasSeenExceptionLine = true;
+                }
+            });
+            checkLine(line, /Parameter name: (?<parameter>.+)/, groups => {
+                if (isException) {
+                    exceptionType += ": " + groups.parameter;
+                    isExceptionLine = true;
                 }
             });
             checkLine(line, /Mod (?<mod>.+) for \((?<version>.+)\) is not compatible with current min mod version (?<minVersion>.+)/, groups => {
@@ -386,6 +395,7 @@ class Block {
                     gameInfo.loadErrors[groups.modFolder] = [];
                 }
                 gameInfo.loadErrors[groups.modFolder].push(new LoadError(groups.file, groups.error));
+                gameInfo.summaries.add("loadErrors");
             });
             checkLine(line, /Address \[(?<id>.+?)\] not found for object \[(?<object>.+?)( \((?<type>.+)\))?\]/, groups => {
                 gameInfo.missingAddresses.push(new MissingAddressError(groups.id, "", groups.object, groups.type ?? ""));
@@ -417,6 +427,7 @@ class Block {
                     gameInfo.loadErrors[groups.modFolder] = [];
                 }
                 gameInfo.loadErrors[groups.modFolder].push(new LoadError(groups.bundleName + '.bundle', "Bundle " + groups.reason));
+                gameInfo.summaries.add("loadErrors");
             });
             checkLine(line, /CRC Mismatch. Provided .+, calculated .+ from data. Will not load AssetBundle '(?<bundleName>.+).bundle'/, groups => {
                 bundleLoadErrors[groups.bundleName] = "CRC mismatch in Asset Bundle. This is a problem with your installation, delete and fully re-install the mod.";
@@ -427,11 +438,12 @@ class Block {
                 }
                 if (gameInfo.loadErrors[groups.modFolder].find(elem => elem.file) == undefined)
                     gameInfo.loadErrors[groups.modFolder].push(new LoadError(groups.bundleName + '.bundle', bundleLoadErrors[groups.bundleName] ?? "Could not load asset bundle."));
+                gameInfo.summaries.add("loadErrors");
             });
             checkLine(line, /Unable to find asset at ress?ource location \[(?<location>.+)\] of type \[(?<dataType>.+)\] for object \[(?<requester>.+) \((?<requesterType>.+)\)\]/, groups => {
                 gameInfo.missingAddresses.push(new MissingAddressError(groups.location, groups.dataType, groups.requester, groups.requesterType))
             });
-            if (isException && !isExceptionLine && hasSeenExceptionLine) {
+            if (isException && !isExceptionLine) {
                 exceptionTags.add(exceptionIsModded ? "modded" : "unmodded");
                 Array.from(modsMentioned).forEach(mod => gameInfo.brokenMods.add(mod));
                 if (exceptionIsModded)
