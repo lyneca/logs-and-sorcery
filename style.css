@@ -1,12 +1,32 @@
+:root {
+    --bg: var(--dark0);
+    --layer: var(--dark1);
+    --fg: var(--light0);
+    --success: var(--faded_green);
+    --error: var(--faded_red);
+    --warning: var(--faded_yellow);
+    --fade: rgba(251, 241, 199, 0.8);
+    --dim: rgba(251, 241, 199, 0.3);
+}
 body, html {
     max-height: 100vh;
     box-sizing: border-box;
     margin: 0;
 }
 
+.color-success {
+    background-color: var(--success);
+    color: var(--fg);
+}
+
+.color-warning {
+    background-color: var(--warning);
+    color: var(--fg);
+}
+
 body {
-    background-color: #333344;
-    color: #dddddd;
+    background-color: var(--bg);
+    color: var(--fg);
     font-family: "Roboto", sans-serif;
     text-align: center;
 }
@@ -28,7 +48,7 @@ h2, h3 {
 }
 
 .screenshot:hover {
-    color: white;
+    color: var(--fg);
 }
 
 .help {
@@ -59,7 +79,6 @@ li {
 }
 
 .suggestion {
-    padding: 10px;
     margin: 10px;
 }
 
@@ -68,26 +87,26 @@ li {
 }
 
 #file-input {
-    border: 5px dashed #bbbbbb;
+    border: 5px dashed var(--fg);
     cursor: pointer;
-    color: #999999;
+    color: var(--fg);
+    opacity: 0.7;
     letter-spacing: 5px;
     padding: 50px 30px;
     width: 50%;
     margin: auto;
     font-size: 30px;
     border-radius: 35px;
-    transition: border-color 0.2s ease-in-out, color 0.2s ease-in-out;
+    transition: opacity 0.2s ease-in-out;
     margin-bottom: 30px;
 }
 
 #file-input:hover {
-    border-color: white !important;
-    color: #dddddd !important;
+    opacity: 1;
 }
 
 .dragging {
-    border-color: white !important;
+    border-color: var(--fg) !important;
 }
 
 .tag-list {
@@ -106,16 +125,6 @@ hr {
     margin: auto;
     width: 700px;
     flex-direction: column;
-}
-
-.summary-item {
-    text-align: left;
-    padding: 10px;
-    border-radius: 10px;
-    grid-template-columns: 40px 1fr;
-    background-color: #4a4a5a;
-    display: grid;
-    margin: 10px;
 }
 
 .fira {
@@ -140,33 +149,6 @@ hr {
 
 .pad {
     margin: 5px;
-}
-
-.cause, .solution {
-    padding: 10px;
-}
-
-.solution {
-    grid-column-start: 2;
-    display: flex;
-}
-.solution > span:first-child {
-    margin-right: 5px;
-}
-
-.game-info {
-    padding: 5px;
-    margin: 5px;
-    border-radius: 5px;
-    background-color: #444455;
-    display: none;
-}
-
-.game-info::before {
-    color: #aaaaaa;
-    border-right: 1px solid #666666;
-    padding-right: 5px;
-    margin-right: 5px;
 }
 
 pre#directory, pre.directory {
@@ -206,6 +188,7 @@ pre#directory, pre.directory {
 #mod-list {
     min-width: 300px;
     box-shadow: inset 0 0 5px 5px rgba(0, 0, 0, 0.1);
+    background-color: var(--dark0_hard);
     border-radius: 5px;;
     padding: 5px 10px;
     display: flex;
@@ -223,7 +206,8 @@ pre#directory, pre.directory {
     flex-direction: column;
     flex-grow: 1;
     text-align: left;
-    padding: 20px;
+    padding: 10px;
+    background-color: var(--dark0_hard);
     box-shadow: inset 0 0 5px 5px rgba(0, 0, 0, 0.1);
     border-radius: 5px;
     overflow-y: scroll;
@@ -241,7 +225,7 @@ pre#directory, pre.directory {
     border-radius: 5px;
     box-sizing: border-box;
     box-shadow: inset 3px 3px 0 0 rgba(0, 0, 0, 0.1);
-    background-color: rgba(0, 0, 0, 0.2);
+    background-color: rgba(0, 0, 0, 0.4);
 }
 
 .hsep {
@@ -252,7 +236,7 @@ pre#directory, pre.directory {
     border-radius: 5px;
     box-sizing: border-box;
     box-shadow: inset 3px 3px 0 0 rgba(0, 0, 0, 0.1);
-    background-color: rgba(0, 0, 0, 0.2);
+    background-color: rgba(0, 0, 0, 0.4);
 }
 
 .mod {
@@ -260,7 +244,7 @@ pre#directory, pre.directory {
     padding: 10px;
     margin: 5px 0;
     border-radius: 5px;
-    background-color: #444455;
+    background-color: var(--dark0_soft);
     box-shadow: 3px 3px 5px 0 rgba(0, 0, 0, 0.2);
     position: relative;
     transition: background-color 0.1s ease-in-out;
@@ -270,11 +254,11 @@ pre#directory, pre.directory {
 }
 
 .mod:hover {
-    background-color: #4C4C5D;
+    background-color: var(--dark1);
 }
 
 .mod.selected {
-    background-color: #5D5D6E;
+    background-color: var(--dark2);
 }
 
 .mod-errors {
@@ -286,26 +270,15 @@ pre#directory, pre.directory {
 .mod-error-count {
     padding: 5px;
     margin-left: 5px;
-    background-color: #886633;
-    box-shadow: 3px 3px 3px 0 rgba(0, 0, 0, 0.1);
-    border-radius: 5px;
+    color: var(--bright_yellow);
+    font-weight: bold;
 }
 
 .mod-exception-count {
     padding: 5px;
     margin-left: 5px;
-    background-color: #883333;
-    box-shadow: 3px 3px 3px 0 rgba(0, 0, 0, 0.1);
-    border-radius: 5px;
-}
-
-.missing-data-item {
-    font-family: "Fira Code", monospace;
-    display: inline-block;
-    padding: 5px;
-    margin: 5px;
-    border-radius: 5px;
-    background-color: #444455;
+    color: var(--bright_red);
+    font-weight: bold;
 }
 
 .normal {
@@ -317,35 +290,6 @@ pre#directory, pre.directory {
     margin-left: 5px;
 }
 
-.line-left {
-    border-left: 1px solid #666666;
-    padding-left: 5px;
-    margin-left: 5px;
-}
-.line-right {
-    border-right: 1px solid #666666;
-    padding-right: 5px;
-    margin-right: 5px;
-}
-
-.load-error-count {
-    padding: 5px;
-    background-color: #555566;
-    border-radius: 5px;
-    margin-right: 10px;
-}
-
-.load-error-name {
-    transition: background-color 0.2s ease-in-out;
-    margin: 0;
-    user-select: none;
-    cursor: pointer;
-    padding: 10px 0;
-}
-.load-error-name:hover {
-    background-color: #4a4a5a;
-}
-
 .load-error-list {
     font-family: "Fira Code", monospace;
     max-height: 0;
@@ -354,79 +298,14 @@ pre#directory, pre.directory {
 }
 
 .exception-mod {
-    background-color: rgba(0, 0, 0, 0.1);
+    background-color: rgba(0, 0, 0, 0.2);
     padding: 5px;
     border-radius: 5px;
     font-style: normal;
 }
 
-.load-error {
-    display: flex;
-    flex-direction: column;
-    display: block;
-    width: 60%;
-    margin: auto;
-    padding-top: 10px;
-    box-sizing: border-box;
-    background-color: #444455;
-    color: #bbbbbb;
-    cursor: pointer;
-    user-select: none;
-    transition: background-color 0.2s ease-in-out;
-}
-
-.load-error:hover {
-    background-color: #4a4a5a;
-}
-
-.load-error:not(:first-of-type) {
-    border-top: 1px solid #555566;
-}
-
-.load-error:first-of-type {
-    border-top-right-radius: 10px;
-    border-top-left-radius: 10px;
-}
-.load-error:last-of-type {
-    border-bottom-right-radius: 10px;
-    border-bottom-left-radius: 10px;
-}
-.load-error:last-of-type .load-error-error {
-    border-bottom-right-radius: 10px;
-    border-bottom-left-radius: 10px;
-}
-
-.load-error-file {
-    padding-bottom: 10px;
-    display: block;
-    font-size: 15px;
-}
-
-.load-error-error {
-    display: block;
-    user-select: text;
-    width: 100%;
-    padding: 0 30px;
-    margin-top: 0;
-    box-sizing: border-box;
-    transition: max-height 0.2s ease-in-out, margin 0.2s ease-in-out, padding 0.2s ease-in-out, background-color 0.2s ease-in-out;;
-    max-height: 0;
-    overflow-y: hidden;
-}
-
 .select {
     user-select: text;
-}
-
-.expanded {
-    background-color: #555566;
-    padding: 10px 30px;
-    max-height: 200px;
-}
-
-.category-expanded {
-    max-height: inherit;
-    margin: 10px 0;
 }
 
 .hidden { display: none; }
@@ -438,11 +317,11 @@ pre#directory, pre.directory {
 }
 
 .event {
-    padding: 10px;
     margin: 10px 0;
+    padding-left: 20px;
     user-select: none;
-    color: rgba(255, 255, 255, 0.8);
-    box-shadow: 2px 2px 5px 5px rgba(0, 0, 0, 0.1);
+    color: var(--fg);
+    box-shadow: 2px 2px 5px 5px rgba(0, 0, 0, 0.2);
     position: relative;
 }
 
@@ -451,8 +330,13 @@ pre#directory, pre.directory {
     margin: auto;
 }
 
-.exception > .event-title {
+.exception .event-title {
     font-family: "Fira Code", monospace;
+}
+
+.event-container {
+    background-color: var(--layer);
+    padding: 10px;
 }
 
 .exception-title {
@@ -461,10 +345,14 @@ pre#directory, pre.directory {
     font-style: italic;
 }
 
+.label-div {
+    width: 20px;
+    height: 100%;
+}
+
 .exception {
-    background-color: #883333;
+    background-color: var(--error);
     cursor: pointer;
-    padding: 10px;
     position: relative;
 }
 
@@ -480,13 +368,13 @@ pre#directory, pre.directory {
 }
 
 .global {
-    background-color: #338833;
+    background-color: var(--success);
 }
 
 .exception-lines {
     display: grid;
     grid-template-columns: 30px 1fr;
-    background-color: #662222;
+    background-color: rgba(0, 0, 0, 0.3);
     box-shadow: 0 0 4px 4px rgba(0, 0, 0, 0.1) inset;
     border-radius: 5px;
     margin: auto;
@@ -521,11 +409,11 @@ span.prefix {
 }
 
 .fade  {
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--fade);
 }
 
 .dim {
-    color: rgba(255, 255, 255, 0.3);
+    color: var(--dim);
 }
 
 .arg {
@@ -541,7 +429,7 @@ span.prefix {
 }
 
 .count {
-    margin-right: 10px;
+    margin-right: 5px;
 }
 
 .tags {
@@ -585,14 +473,14 @@ tr {
 }
 
 td:not(:last-of-type) {
-    border-right: 1px solid #999999;
+    border-right: 1px solid var(--fg);
 }
 
 tr:not(:last-of-type) td {
-    border-bottom: 1px solid #999999;
+    border-bottom: 1px solid var(--fg);
 }
 th {
-    border-bottom: 2px solid #bbbbbb;
+    border-bottom: 2px solid var(--fg);
     font-weight: bold;
     padding: 5px;
 }

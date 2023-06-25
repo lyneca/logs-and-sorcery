@@ -1,9 +1,4 @@
-/*
-# Categories
-- Load Errors
-  - Missing Data
-- Runtime Errors
-*/
+// https://coolors.co/333344-45cb85-ff4f79-1e91d6-f4ac45
 
 const containers = {
   mods: document.querySelector("#mod-list"),
@@ -46,7 +41,8 @@ const SUGGESTIONS = {
   incompatible: {
     title:
       "Make sure you have installed mods that are for the correct version of the game.",
-    description: "One or more of your mods is not for this version of the game. They have not been loaded.",
+    description:
+      "One or more of your mods is not for this version of the game. They have not been loaded.",
   },
 };
 
@@ -76,7 +72,7 @@ const ARG_REPLACEMENTS = {
   single: "float",
 };
 
-const capitals = ["dll", "json", "id"];
+const capitals = ["dll", "json", "id", "gpu", "vram", "hmd"];
 
 String.prototype.hashCode = function () {
   var hash = 0,
@@ -195,7 +191,7 @@ function clickButton(id) {
 
 function objectToTable(obj, title, includeEmpty = true) {
   return (
-    (title ? `<h3>${title}</h3>` : "") +
+    (title ? heading(title) : "") +
     '<table class="auto-table">' +
     Object.entries(obj)
       .map(([key, value]) =>
@@ -212,7 +208,7 @@ function objectListToTable(list, keys, title, note) {
   if (!list || list.length == 0) return "";
   keys ??= list.length > 0 ? [...Object.keys(list[0])] : [];
   return (
-    (title ? `<h3>${title}</h3>` : "") +
+    (title ? heading(title) : "") +
     (note ? `<span class="dim italic">${note}</span>` : "") +
     '<table class="auto-table">' +
     `<tr>${keys.map((key) => `<th>${niceify(key)}</th>`).join("")}</tr>` +
@@ -226,6 +222,10 @@ function objectListToTable(list, keys, title, note) {
       .join("") +
     "</table>"
   );
+}
+
+function heading(text, level=2) {
+  return `<h${level}>${text}</h${level}>`
 }
 
 function screenshot(event, element) {
@@ -246,10 +246,14 @@ function code(string) {
   return `<code>${string}</code>`;
 }
 
-function icon(name, tooltip) {
-  return `<i class="pad icofont-${name}">${
-    tooltip ? `<p>${tooltip}</p>` : ""
-  }</i>`;
+function icon(name, tooltip, color) {
+  return `<i class="pad icofont-${name}"${
+    color ? ` style="color: ${color}` : ""
+  }">${tooltip ? `<p>${tooltip}</p>` : ""}</i>`;
+}
+
+function hr() {
+  return '<div class="hsep"></div>';
 }
 
 function div(string, className) {
@@ -269,8 +273,16 @@ function emph(string) {
 function li(string) {
   return `<li>${string}</li>`;
 }
+
 function ul(elements) {
   return `<ul>${elements.map(li).join("")}</ul>`;
+}
+
+function wrapDetails(title, contents) {
+  return `<div class="pad">
+  ${heading(title)}
+  ${contents}
+  </div>`
 }
 
 class Game {
@@ -281,7 +293,7 @@ class Game {
     this.orphanExceptions = [];
     this.missingData = [];
     this.selectors = {};
-    this.system = {};
+    this.system = { game_directory: null, platform: null };
     this.suggestions = {};
     this.incompatibleMods = [];
     this.begun = false;
@@ -356,7 +368,9 @@ class Game {
   }
 
   begin() {
-    if (this.system.platform === undefined) {
+    if (this.system.platform === null) {
+      this.system.platform =
+        icon("warning", undefined, "color-warning") + "Unknown - Pirated?";
       this.addSuggestion("pirated");
     }
     this.begun = true;
@@ -438,7 +452,7 @@ class Game {
             this.incompatibleMods.length
           )
         : null,
-      this.hr(),
+      hr(),
       ...this.mods.map((mod) => mod.renderList()),
     ]
       .filter((elem) => elem != null)
@@ -447,29 +461,32 @@ class Game {
   }
 
   renderGameInfo() {
-    return objectToTable(this.system);
+    return wrapDetails("System Info", objectToTable(this.system));
   }
 
   renderSuggestions() {
-    return [
-      "<h2>Suggestions</h2>",
-      ...Object.entries(this.suggestions).map(([tag, reasons]) =>
-        this.renderSuggestion(SUGGESTIONS[tag], reasons)
-      ),
-    ].join('<div class="hsep"></div>');
+    return wrapDetails(
+      "Suggestions",
+      [
+        ...Object.entries(this.suggestions).map(([tag, reasons]) =>
+          this.renderSuggestion(SUGGESTIONS[tag], reasons)
+        ),
+      ].join(hr()),
+      "pad"
+    );
   }
 
   renderSuggestion(suggestion, reasons) {
     if (suggestion.cols) {
       return div(
-        `<h3>${suggestion.title}</h3>` +
+        heading(suggestion.title, 3) +
           div(suggestion.description, "suggestion-text") +
           objectListToTable(reasons, suggestion.cols),
         "suggestion"
       );
     } else {
       return div(
-        `<h3>${suggestion.title}</h3>` +
+        heading(suggestion.title, 3) +
           div(suggestion.description, "suggestion-text") +
           (reasons.length > 0 ? ul(reasons, "suggestion-reasons") : ""),
         "suggestion"
@@ -482,8 +499,8 @@ class Game {
   }
 
   renderIncompatibleMods() {
-    return (
-      `<h3>Incompatible Mods</h3>` +
+    return wrapDetails(
+      "Incompatible Mods",
       div(objectListToTable(this.incompatibleMods))
     );
   }
@@ -499,10 +516,6 @@ class Game {
             }</div>
         </div>
         </div>`;
-  }
-
-  hr() {
-    return '<div class="hsep"></div>';
   }
 
   collapseTimeline() {
@@ -639,7 +652,8 @@ class Mod {
     );
     let exceptions =
       this.collapsed.length > 0
-        ? div(
+        ? heading("Exceptions") +
+          div(
             this.collapsed
               .map((exception) => exception.exception.render(exception.count))
               .join("")
@@ -647,7 +661,7 @@ class Mod {
         : "";
     return [table, loadErrors, missingData, exceptions]
       .filter((elem) => elem)
-      .join(game.hr());
+      .join(hr());
     /* 
         Name
         Folder
@@ -719,6 +733,7 @@ class Exception {
   render(count) {
     count ??= this.count;
     return `<div class="exception event" onclick="expandException(this)">
+                    <div class="event-container">
                     <span class="tags">
                     ${Array.from(this.tags)
                       .map(
@@ -738,12 +753,12 @@ class Exception {
                     </span>
                     <div class="event-title">${
                       count > 1
-                        ? `<span class="dim count">${count}x</span>`
+                        ? `<span class="fade count normal">${count}x</span>`
                         : ""
                     }${this.type}</div>
                     ${
                       [...this.mods].length > 0
-                        ? `<span class="exception-title dim">${[
+                        ? `<span class="exception-title fade">${[
                             ...this.mods,
                           ].map((mod) => div(mod, "exception-mod"))}</span>`
                         : ""
@@ -767,6 +782,7 @@ class Exception {
                            </div>`
                         : ""
                     }
+                  </div>
                 </div>`;
   }
 }
@@ -920,7 +936,7 @@ class ExceptionLine {
 
 class TimelineEvent {
   constructor(text, description, props, color) {
-    this.color = color ?? "#338833";
+    this.color = color ?? "color-success";
     this.text = text;
     this.description = description;
     this.props = props ?? {};
@@ -941,14 +957,16 @@ class TimelineEvent {
           )}</span></div>`
         );
       });
-    return `<div class="global event" style="background-color: ${this.color}">
+    return `<div class="global event ${this.color ?? ""}">
+              <div class="event-container">
                     <div class="event-title">${this.text}</div>
                     ${
                       desc.length > 0
                         ? `<div class="event-details">${desc.join("")}</div>`
                         : ""
                     }
-                </div>`;
+              </div>
+            </div>`;
   }
 }
 
@@ -1147,7 +1165,8 @@ function parse(lines) {
           line,
           /Load level (?<level>.+) using mode (?<mode>.+)/,
           (groups) => {
-            game.addEvent(`Loading level ${groups.level}...`, undefined, {
+            game.addEvent(`Loading level ${groups.level}`, undefined, {
+              level: groups.level,
               mode: groups.mode,
             });
           }
@@ -1157,6 +1176,7 @@ function parse(lines) {
           /Total time to load (?<level>.+): (?<time>.+) sec/,
           (groups) => {
             game.addEvent(`Loaded level ${groups.level}`, undefined, {
+              level: groups.level,
               load_time: `${groups.time}s`,
             });
           }
@@ -1240,7 +1260,7 @@ function parse(lines) {
 function matchSystemInfo(line) {
   line = line.replace(/\//g, "\\");
   match(line, /Mono path\[0\] = '(?<path>.+)'$/, (groups) => {
-    game.system.game_directory = groups.path;
+    game.system.game_directory = groups.path.replace('\\', '/');
   });
   match(line, /Mono path\[0\] = '.+(Oculus)?\\Software.+/i, () => {
     game.system.platform = "Oculus";
