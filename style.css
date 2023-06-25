@@ -114,11 +114,6 @@ li {
     flex-wrap: wrap;
     justify-content: center;
 }
-hr {
-    border: none;
-    border-top: 2px dashed rgba(255, 255, 255, 0.4);
-    margin: 10px 0;
-}
 
 #summary {
     display: flex;
@@ -386,8 +381,8 @@ pre#directory, pre.directory {
     line-break: anywhere;
 }
 
-.exception-line-filename {
-    color: rgba(255, 255, 255, 0.5);
+.exception-line-filename, .exception-line-line {
+    color: var(--light4);
 }
 
 span.prefix {

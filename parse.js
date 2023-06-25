@@ -4,6 +4,8 @@ const containers = {
   mods: document.querySelector("#mod-list"),
 };
 
+const LOG_REGEX = /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2}).(?<microsecond>\d+) (?<level>[A-Z]+) .+?: /;
+
 const IGNORED_ARGS = [
   "Newtonsoft.",
   "ThunderRoad.",
@@ -138,6 +140,7 @@ function loadFile(file) {
 function niceify(string) {
   return string
     .replace(/_/g, " ")
+    .replace(/(\d+),(\d+)/g, "$1.$2")
     .split(" ")
     .map((word) =>
       capitals.includes(word.toLowerCase())
@@ -160,7 +163,7 @@ function renderValue(value) {
       return value.match(/^[A-Z]:[\/\\]/) ||
         (!value.match(/ /) && value.match(/\./))
         ? code(value)
-        : value;
+        : value.replace(/(\d+),(\d+)/g, "$1.$2");
     case "object":
       if (Array.isArray(value)) {
         return value.map(renderValue).join(", ");
@@ -917,7 +920,7 @@ class ExceptionLine {
                     }">${this.getPath()}</div>
                     ${
                       this.filename != undefined && this.line >= 0
-                        ? `<span><span class="prefix dim">=></span>
+                        ? `<span><span class="prefix dim">-></span>
                             <span><span class="dim code">line</span> <span class="exception-line-line">${
                               this.line
                             }</span> <span class="dim code">of</span> </span><span class="exception-line-filename">${this.renderFilename()}</span>
@@ -983,9 +986,17 @@ function parse(lines) {
   game = new Game();
   let exception = null;
   let prev = "";
+  let metadata = {};
 
   lines.forEach((line) => {
     line = line.replace("/", "\\");
+
+    match(line, LOG_REGEX, groups => {
+        console.log("Boop")
+        metadata = groups;
+        line = line.replace(LOG_REGEX, "");
+    });
+
     // determine state changes
     if (state == "exception") {
       if (
@@ -1057,6 +1068,16 @@ function parse(lines) {
               path: groups.path.replace(/\\$/, "").replace(/\\/, "/"),
               dll: groups.dll,
             });
+          }
+        );
+
+        // Match mod debug symbols
+        match(
+          line,
+          /\[ModManager\]\[Assembly\] - Assembly has debug symbols: (?<path>([^\\]+\\)+)(?<dll>.+\.pdb)/,
+          (groups) => {
+            let folder = groups.path.split("\\")[0];
+            game.findModByFolder(folder)?.tags.add('pdb');
           }
         );
 
