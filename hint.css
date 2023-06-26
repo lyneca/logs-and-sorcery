@@ -3,7 +3,7 @@
     position: absolute;
     top: 3px;
     display: inline-block;
-    background-color: #444455;
+    background-color: var(--dark0);
     border-radius: 50%;
     width: 24px;
     height: 24px;
@@ -16,7 +16,7 @@
 .help-tip:before {
     content: "?";
     font-weight: normal;
-    color:#fff;
+    color: var(--fg);
 }
 
 .tag {
@@ -46,7 +46,7 @@
     z-index: 10;
     font-weight: normal;
     text-align: left;
-    background-color: #1E2021;
+    background-color: var(--bg);
     padding: 20px;
     width: 300px;
     position: absolute;
@@ -56,6 +56,9 @@
     color: #FFF;
     font-size: 13px;
     line-height: 1.4;
+    margin: 0;
+    margin-top: 2px;
+    margin-right: 6px;
 }
 
 .tag p:before,
@@ -65,7 +68,7 @@
     width:0;
     height: 0;
     border:6px solid transparent;
-    border-bottom-color:#1E2021;
+    border-bottom-color: var(--bg);
     right:10px;
     top:-12px;
 }

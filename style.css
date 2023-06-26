@@ -303,7 +303,6 @@ pre#directory, pre.directory {
 }
 
 .event {
-    overflow: hidden;
     margin: 10px 0;
     padding-left: 20px;
     user-select: none;
@@ -349,9 +348,17 @@ pre#directory, pre.directory {
     border-top-left-radius: 10px;
 }
 
+.event:first-of-type > .event-container {
+    border-top-right-radius: 10px;
+}
+
 .event:last-of-type {
     border-bottom-right-radius: 10px;
     border-bottom-left-radius: 10px;
+}
+
+.event:last-of-type > .event-container {
+    border-bottom-right-radius: 10px;
 }
 
 .global {
@@ -509,13 +516,6 @@ code {
 .color-fatal {
     background-color: var(--fatal);
 }
-
-/* .hover-mod-name::before { */
-    /* content: ' - ' */
-/* } */
-/* .hover-mod-name { */
-    /* margin-left: 10px; */
-/* } */
 
 @media screen and (max-width: 1200px) {
     main {

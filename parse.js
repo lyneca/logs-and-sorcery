@@ -48,6 +48,12 @@ const SUGGESTIONS = {
   },
 };
 
+const EXCEPTIONS = {
+  NullReferenceException: "This exception is thrown when a property or method is accessed on a null object.",
+  ArgumentOutOfRangeException: "This exception is thrown when an argument to a method is outside the allowed range of values.",
+  DllNotFoundException: "This exception is thrown when a referenced DLL cannot be found."
+}
+
 const EXCEPTION_TAGS = {
   unmodded: {
     icon: "info-circle",
@@ -72,6 +78,8 @@ const EXCEPTION_TAGS = {
 const ARG_REPLACEMENTS = {
   boolean: "bool",
   single: "float",
+  string: "string",
+  int32: "int"
 };
 
 const capitals = ["dll", "json", "id", "gpu", "vram", "hmd"];
@@ -741,6 +749,7 @@ class Exception {
     return `<div class="exception event" onclick="expandException(this)">
                     <div class="event-container">
                     <span class="tags">
+                    ${EXCEPTIONS[this.type] ? `<i class="tag icofont-question"><p>${EXCEPTIONS[this.type]}</p></i>` : '' }
                     ${Array.from(this.tags)
                       .map(
                         (tag) =>
