@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code&family=Nova+Cut&family=Roboto&display=swap"
+        rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="gruvbox.css">
+    <link rel="stylesheet" href="style.css">
+    <title>Time Tracking</title>
+</head>
+
+<body>
+    <style>
+        .entries {
+            min-height: 0;
+            display: flex;
+            flex-grow: 1;
+            align-items: start;
+        }
+
+        .entry {
+            border-radius: 10px;
+            padding: 10px;
+            margin: 10px;
+            background-color: var(--dark1);
+        }
+
+        .hours {
+            font-size: 40px;
+        }
+
+        .date {
+            margin: 5px;
+            font-family: "Fira Code", monospace;
+        }
+        
+        .subtitle {
+        }
+    </style>
+    <input type="file" id="file-click-input" style="position:fixed;top:-1000px"></input>
+    <main>
+        <h1>Time &amp; Sorcery</h1>
+        <div id="file-input">DROP TIME LOG HERE</div>
+        <div class="hsep"></div>
+        <section class="entries"></section>
+    </main>
+    <script>
+        const fileInput = document.querySelector("#file-input");
+        const fileClickInput = document.getElementById("file-click-input");
+        fileInput.addEventListener("dragenter", (_) => {
+            fileInput.classList.add("dragging");
+        });
+        fileInput.addEventListener("dragleave", (_) => {
+            fileInput.classList.remove("dragging");
+        });
+        fileInput.addEventListener("dragover", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+        fileInput.addEventListener("drop", (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            loadFile(e.dataTransfer.files[0]);
+        });
+        fileInput.addEventListener("click", (e) => {
+            fileClickInput.click();
+        });
+        fileClickInput.addEventListener("change", (e) => {
+            loadFile(e.target.files[0]);
+        });
+
+        function loadFile(file) {
+            const reader = new FileReader();
+            reader.readAsText(file);
+            reader.onload = () => {
+                let lines = reader.result.split('\n');
+                parse(lines);
+            };
+        }
+
+        function match(line, re, callback) {
+            let match = line.match(re);
+            if (match) callback(match.groups);
+            return match != null;
+        }
+
+        function getHours(start, end) {
+            let minutes = (end - start) / 1000 / 60;
+            let hours = Math.floor(minutes / 60);
+            let fraction = Math.ceil((minutes % 60) / 60 * 10) / 10;
+            return hours + fraction;
+        }
+
+        function parse(lines) {
+            let entries = [];
+            let lastDate = null;
+            let lastStart = null;
+            lines.forEach(line => {
+                match(line, /\[(?<date>.+)\] : Editor heartbeat!/, groups => {
+                    let date = new Date(groups.date);
+                    if (lastDate != null) {
+                        if (date - lastDate > 60 * 30 * 1000) {
+                            entries.push({ start: lastStart, end: lastDate, hours: getHours(lastStart, lastDate) });
+                            lastStart = date;
+                        }
+                    } else {
+                        lastStart = new Date(groups.date);
+                    }
+                    lastDate = date;
+                });
+            });
+            entries.push({ start: lastStart, end: lastDate, hours: getHours(lastStart, lastDate) });
+            console.log(entries);
+            document.querySelector("section.entries").innerHTML = entries
+                .map(entry => '<div class="entry">'
+                    + `<div class="hours">${entry.hours}h</div>`
+                    + `<div class="dim">Start</div>`
+                    + `<div class="date start">${entry.start.toLocaleString()}</div>`
+                    + `<div class="dim">End</div>`
+                    + `<div class="date end">${entry.end.toLocaleString()}</div>`
+                    + "</div>")
+                .join('');
+        }
+    </script>
+</body>
+
+</html>
