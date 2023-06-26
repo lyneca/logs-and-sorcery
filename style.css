@@ -5,6 +5,7 @@
     --success: var(--faded_green);
     --error: var(--faded_red);
     --warning: var(--faded_yellow);
+    --fatal: var(--faded_purple);
     --fade: rgba(251, 241, 199, 0.8);
     --dim: rgba(251, 241, 199, 0.3);
 }
@@ -12,16 +13,6 @@ body, html {
     max-height: 100vh;
     box-sizing: border-box;
     margin: 0;
-}
-
-.color-success {
-    background-color: var(--success);
-    color: var(--fg);
-}
-
-.color-warning {
-    background-color: var(--warning);
-    color: var(--fg);
 }
 
 body {
@@ -503,6 +494,20 @@ code {
     padding: 3px;
     border-radius: 3px;
     background-color: rgba(0, 0, 0, 0.3);
+}
+
+.color-success {
+    background-color: var(--success);
+    color: var(--fg);
+}
+
+.color-warning {
+    background-color: var(--warning);
+    color: var(--fg);
+}
+
+.color-fatal {
+    background-color: var(--fatal);
 }
 
 /* .hover-mod-name::before { */

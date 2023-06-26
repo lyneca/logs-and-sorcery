@@ -1226,7 +1226,7 @@ function parse(lines) {
             "Hard crash!",
             "Check the log for stack traces.<br>This may an underlying problem with your PC, or GPU drivers.",
             undefined,
-            "fatal"
+            "color-fatal"
           );
         });
 
@@ -1236,13 +1236,11 @@ function parse(lines) {
             "System out of memory!",
             "You may either have too many other programs open, or you might not have enough RAM on your PC. It's recommended to have at least 16GB total RAM for Blade and Sorcery.",
             undefined,
-            "fatal"
+            "color-fatal"
           );
         });
 
         match(line, /Trying to allocate: (?<bytes>\d+)B with \d+ alignment. MemoryLabel: (?<label>.+)/, groups => {
-                  // Trying to allocate: 44739252B with 16 alignment. MemoryLabel: Manager
-
           if (game.lastEvent?.text == "System out of memory!") {
             game.lastEvent.props.bytes = groups.bytes > 1000 ? (Math.round(groups.bytes / 1000) + " MB") : groups.bytes + " bytes";
             game.lastEvent.props.label = groups.label;
