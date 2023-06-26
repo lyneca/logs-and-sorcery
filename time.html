@@ -16,8 +16,8 @@
         .entries {
             min-height: 0;
             display: flex;
-            flex-grow: 1;
-            align-items: start;
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
         .entry {
@@ -25,6 +25,10 @@
             padding: 10px;
             margin: 10px;
             background-color: var(--dark1);
+            min-width: 250px;
+            flex-grow: 1;
+            max-width: 300px;
+            box-shadow: 2px 2px 5px 5px rgba(0, 0, 0, 0.2);
         }
 
         .hours {
@@ -45,6 +49,7 @@
         <div id="file-input">DROP TIME LOG HERE</div>
         <div class="hsep"></div>
         <section class="entries"></section>
+        <div style="flex-grow: 1;"></div>
     </main>
     <script>
         const fileInput = document.querySelector("#file-input");
