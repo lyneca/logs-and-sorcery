@@ -21,6 +21,8 @@
         }
 
         .entry {
+            cursor: pointer;
+            user-select: none;
             border-radius: 10px;
             padding: 10px;
             margin: 10px;
@@ -29,6 +31,15 @@
             flex-grow: 1;
             max-width: 300px;
             box-shadow: 2px 2px 5px 5px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.2s ease-in-out;
+        }
+
+        .entry:hover {
+            background-color: var(--dark2);
+        }
+
+        .entry:active, .entry.active {
+            background-color: var(--dark3);
         }
 
         .hours {
@@ -39,14 +50,19 @@
             margin: 5px;
             font-family: "Fira Code", monospace;
         }
-        
-        .subtitle {
+
+        #hours {
+            font-size: 50px;
         }
     </style>
     <input type="file" id="file-click-input" style="position:fixed;top:-1000px"></input>
     <main>
         <h1>Time &amp; Sorcery</h1>
         <div id="file-input">DROP TIME LOG HERE</div>
+        <div class="hours-container">
+            <h2>Hours</h2>
+            <div id="hours">0h 0m</div>
+        </div>
         <div class="hsep"></div>
         <section class="entries"></section>
         <div style="flex-grow: 1;"></div>
@@ -76,6 +92,38 @@
             loadFile(e.target.files[0]);
         });
 
+        function getEntry(element) {
+            let next = element;
+            while (next != null && !next.hasAttribute('seconds')) {
+                if (element.tagName == 'html') break;
+                next = element.parentElement;
+            }
+
+            if (next) return next;
+            return null;
+        }
+
+        let hourElements = []
+        function addTime(event) {
+            let entry = getEntry(event.target);
+            console.log(entry);
+            if (hourElements.includes(entry)) {
+                entry.classList.remove('active')
+                hourElements.splice(hourElements.indexOf(entry), 1);
+            }
+            else {
+                entry.classList.add('active')
+                hourElements.push(entry);
+            }
+            refreshTotal();
+        }
+
+        function refreshTotal() {
+            console.log(hourElements.reduce((a, b) => a + parseInt(b.getAttribute('seconds')), 0))
+            let hours = secondsToHours(hourElements.reduce((a, b) => a + parseInt(b.getAttribute('seconds')), 0));
+            document.getElementById('hours').innerHTML = `${hours.hours}h ${hours.minutes}m`;
+        }
+
         function loadFile(file) {
             const reader = new FileReader();
             reader.readAsText(file);
@@ -92,10 +140,14 @@
         }
 
         function getHours(start, end) {
-            let minutes = (end - start) / 1000 / 60;
+            return secondsToHours((end - start) / 1000);
+        }
+
+        function secondsToHours(seconds) {
+            let minutes = seconds / 60;
             let hours = Math.floor(minutes / 60);
-            let fraction = Math.ceil((minutes % 60) / 60 * 10) / 10;
-            return hours + fraction;
+            let fraction = Math.ceil((minutes % 60));
+            return { hours, minutes: fraction };
         }
 
         function parse(lines) {
@@ -107,7 +159,12 @@
                     let date = new Date(groups.date);
                     if (lastDate != null) {
                         if (date - lastDate > 60 * 30 * 1000) {
-                            entries.push({ start: lastStart, end: lastDate, hours: getHours(lastStart, lastDate) });
+                            entries.push({
+                                start: lastStart,
+                                end: lastDate,
+                                seconds: (lastDate - lastStart) / 1000,
+                                hours: getHours(lastStart, lastDate)
+                            });
                             lastStart = date;
                         }
                     } else {
@@ -116,11 +173,17 @@
                     lastDate = date;
                 });
             });
-            entries.push({ start: lastStart, end: lastDate, hours: getHours(lastStart, lastDate) });
+            if (lastDate != lastStart)
+                entries.push({
+                    start: lastStart,
+                    end: lastDate,
+                    seconds: (lastDate - lastStart) / 1000,
+                    hours: getHours(lastStart, lastDate)
+                });
             console.log(entries);
             document.querySelector("section.entries").innerHTML = entries
-                .map(entry => '<div class="entry">'
-                    + `<div class="hours">${entry.hours}h</div>`
+                .map(entry => `<div class="entry" onclick="addTime(event)" seconds=${entry.seconds}>`
+                    + `<div class="hours">${entry.hours.hours}h ${entry.hours.minutes}m</div>`
                     + `<div class="dim">Start</div>`
                     + `<div class="date start">${entry.start.toLocaleString()}</div>`
                     + `<div class="dim">End</div>`
