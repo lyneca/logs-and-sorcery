@@ -4,7 +4,8 @@ const containers = {
   mods: document.querySelector("#mod-list"),
 };
 
-const LOG_REGEX = /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2}).(?<microsecond>\d+) (?<level>[A-Z]+) .+?: /;
+const LOG_REGEX =
+  /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2}).(?<microsecond>\d+) (?<level>[A-Z]+) .+?: /;
 
 const IGNORED_ARGS = [
   "Newtonsoft.",
@@ -49,10 +50,13 @@ const SUGGESTIONS = {
 };
 
 const EXCEPTIONS = {
-  NullReferenceException: "This exception is thrown when a property or method is accessed on a null object.",
-  ArgumentOutOfRangeException: "This exception is thrown when an argument to a method is outside the allowed range of values.",
-  DllNotFoundException: "This exception is thrown when a referenced DLL cannot be found."
-}
+  NullReferenceException:
+    "This exception is thrown when a property or method is accessed on a null object.",
+  ArgumentOutOfRangeException:
+    "This exception is thrown when an argument to a method is outside the allowed range of values.",
+  DllNotFoundException:
+    "This exception is thrown when a referenced DLL cannot be found.",
+};
 
 const EXCEPTION_TAGS = {
   unmodded: {
@@ -79,7 +83,7 @@ const ARG_REPLACEMENTS = {
   boolean: "bool",
   single: "float",
   string: "string",
-  int32: "int"
+  int32: "int",
 };
 
 const capitals = ["dll", "json", "id", "gpu", "vram", "hmd"];
@@ -235,8 +239,8 @@ function objectListToTable(list, keys, title, note) {
   );
 }
 
-function heading(text, level=2) {
-  return `<h${level}>${text}</h${level}>`
+function heading(text, level = 2) {
+  return `<h${level}>${text}</h${level}>`;
 }
 
 function screenshot(event, element) {
@@ -293,7 +297,7 @@ function wrapDetails(title, contents) {
   return `<div class="pad">
   ${heading(title)}
   ${contents}
-  </div>`
+  </div>`;
 }
 
 class Game {
@@ -413,6 +417,7 @@ class Game {
     this.exceptions.forEach((exception) => exception.complete());
     this.mods.forEach((mod) => mod.complete());
     this.collapseTimeline();
+    this.collapseOrphanExceptions();
     this.missingData.forEach((data) => {
       // console.log(`Searching for ${data.id}`)
       game.findModByData(data.id, data.address)?.missingData.push({
@@ -466,6 +471,13 @@ class Game {
             this.incompatibleMods.length
           )
         : null,
+      this.orphanExceptions.length > 0
+        ? this.selector(
+            "Orphan Exceptions",
+            this.renderOrphanExceptions,
+            this.orphanExceptions.count
+          )
+        : null,
       hr(),
       ...this.mods.map((mod) => mod.renderList()),
     ]
@@ -506,6 +518,14 @@ class Game {
         "suggestion"
       );
     }
+  }
+
+  renderOrphanExceptions() {
+    return div(
+      this.orphanCollapsed
+        .map((exception) => exception.exception.render(exception.count))
+        .join("")
+    );
   }
 
   renderTimeline() {
@@ -553,6 +573,21 @@ class Game {
       }
     });
     this.timeline = collapsed;
+  }
+
+  collapseOrphanExceptions() {
+    let collapsed = {};
+    let keys = []
+    this.orphanExceptions.forEach((exception) => {
+      const hash = JSON.stringify(exception).hashCode();
+      if (collapsed[hash]) {
+        collapsed[hash].count++;
+      } else {
+        collapsed[hash] = { exception: exception, count: 1 };
+        keys.push(hash);
+      }
+    });
+    this.orphanCollapsed = keys.map(key => collapsed[key]);
   }
 }
 
@@ -711,11 +746,15 @@ class Exception {
 
   complete() {
     let foundMods = new Set();
+    if (this.mods.size == 0) {
+      game.orphanExceptions.push(this);
+    }
     this.mods.forEach((mod) => {
       let found =
         game.findModByNamespace(mod) ??
         game.fuzzyFindMod(mod) ??
         game.findModByAssembly(mod);
+      console.log(found);
       if (found) {
         foundMods.add(found.name);
         game.mods
@@ -744,12 +783,19 @@ class Exception {
       );
     }
   }
+
   render(count) {
     count ??= this.count;
     return `<div class="exception event" onclick="expandException(this)">
                     <div class="event-container">
                     <span class="tags">
-                    ${EXCEPTIONS[this.type] ? `<i class="tag icofont-question"><p>${EXCEPTIONS[this.type]}</p></i>` : '' }
+                    ${
+                      EXCEPTIONS[this.type]
+                        ? `<i class="tag icofont-question"><p>${
+                            EXCEPTIONS[this.type]
+                          }</p></i>`
+                        : ""
+                    }
                     ${Array.from(this.tags)
                       .map(
                         (tag) =>
@@ -1003,10 +1049,10 @@ function parse(lines) {
   lines.forEach((line) => {
     line = line.replace("/", "\\");
 
-    match(line, LOG_REGEX, groups => {
-        console.log("Boop")
-        metadata = groups;
-        line = line.replace(LOG_REGEX, "");
+    match(line, LOG_REGEX, (groups) => {
+      console.log("Boop");
+      metadata = groups;
+      line = line.replace(LOG_REGEX, "");
     });
 
     // determine state changes
@@ -1089,7 +1135,7 @@ function parse(lines) {
           /\[ModManager\]\[Assembly\] - Assembly has debug symbols: (?<path>([^\\]+\\)+)(?<dll>.+\.pdb)/,
           (groups) => {
             let folder = groups.path.split("\\")[0];
-            game.findModByFolder(folder)?.tags.add('pdb');
+            game.findModByFolder(folder)?.tags.add("pdb");
           }
         );
 
@@ -1249,12 +1295,19 @@ function parse(lines) {
           );
         });
 
-        match(line, /Trying to allocate: (?<bytes>\d+)B with \d+ alignment. MemoryLabel: (?<label>.+)/, groups => {
-          if (game.lastEvent?.text == "System out of memory!") {
-            game.lastEvent.props.bytes = groups.bytes > 1000 ? (Math.round(groups.bytes / 1000) + " MB") : groups.bytes + " bytes";
-            game.lastEvent.props.label = groups.label;
+        match(
+          line,
+          /Trying to allocate: (?<bytes>\d+)B with \d+ alignment. MemoryLabel: (?<label>.+)/,
+          (groups) => {
+            if (game.lastEvent?.text == "System out of memory!") {
+              game.lastEvent.props.bytes =
+                groups.bytes > 1000
+                  ? Math.round(groups.bytes / 1000) + " MB"
+                  : groups.bytes + " bytes";
+              game.lastEvent.props.label = groups.label;
+            }
           }
-        });
+        );
 
         break;
       case "exception":
@@ -1311,7 +1364,7 @@ function parse(lines) {
 function matchSystemInfo(line) {
   line = line.replace(/\//g, "\\");
   match(line, /Mono path\[0\] = '(?<path>.+)'$/, (groups) => {
-    game.system.game_directory = groups.path.replace('\\', '/');
+    game.system.game_directory = groups.path.replace("\\", "/");
   });
   match(line, /Mono path\[0\] = '.+(Oculus)?\\Software.+/i, () => {
     game.system.platform = "Oculus";
