@@ -1289,7 +1289,7 @@ function parse(lines) {
         match(line, /Could not allocate memory: System out of memory!/, () => {
           game.addEvent(
             "System out of memory!",
-            "You may either have too many other programs open, or you might not have enough RAM on your PC. It's recommended to have at least 16GB total RAM for Blade and Sorcery.",
+            "You may either have too many other programs open, or you might not have enough RAM on your PC. It's recommended to have at least 16GB total RAM for Blade and Sorcery. If you have enough RAM, this problem has also been solved in the past by re-installing GPU drivers.",
             undefined,
             "color-fatal"
           );
