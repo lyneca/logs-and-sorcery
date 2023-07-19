@@ -63,6 +63,7 @@
             <h2>Hours</h2>
             <div id="hours">0h 0m</div>
         </div>
+        <button onclick="copyTimes()"></button>
         <div class="hsep"></div>
         <section class="entries"></section>
         <div style="flex-grow: 1;"></div>
@@ -91,6 +92,7 @@
         fileClickInput.addEventListener("change", (e) => {
             loadFile(e.target.files[0]);
         });
+
 
         function getEntry(element) {
             let next = element;
@@ -149,9 +151,10 @@
             let fraction = Math.ceil((minutes % 60));
             return { hours, minutes: fraction };
         }
+        let entries = [];
 
         function parse(lines) {
-            let entries = [];
+            entries = [];
             let lastDate = null;
             let lastStart = null;
             lines.forEach(line => {
@@ -180,7 +183,6 @@
                     seconds: (lastDate - lastStart) / 1000,
                     hours: getHours(lastStart, lastDate)
                 });
-            console.log(entries);
             document.querySelector("section.entries").innerHTML = entries
                 .map(entry => `<div class="entry" onclick="addTime(event)" seconds=${entry.seconds}>`
                     + `<div class="hours">${entry.hours.hours}h ${entry.hours.minutes}m</div>`
@@ -190,6 +192,22 @@
                     + `<div class="date end">${entry.end.toLocaleString()}</div>`
                     + "</div>")
                 .join('');
+        }
+
+        function onlyUnique(value, index, array) {
+          return array.indexOf(value) === index;
+        }
+
+        function copyTimes() {
+            let days = entries.map(entry => entry.start.toLocaleDateString('en-us'))
+            let dayHours = days.filter(onlyUnique).map(day => ({
+                date: day,
+                hours: entries.filter(entry => entry.start.toLocaleDateString('en-us') == day)
+                              .reduce((prev, entry) => prev + entry.seconds / 60 / 60, 0)
+                        }));
+            let text = dayHours.map(entry => `${entry.date}\t${entry.hours}`).join('\n');
+            console.log(text);
+            navigator.clipboard.writeText(text);
         }
     </script>
 </body>
