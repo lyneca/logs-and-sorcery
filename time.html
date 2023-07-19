@@ -54,6 +54,26 @@
         #hours {
             font-size: 50px;
         }
+        button {
+            background-color: var(--dark1);
+            border: none;
+            padding: 10px;
+            display: inline-block;
+            margin: auto;
+            border-radius: 5px;
+            color: var(--light1);
+            text-transform: uppercase;
+            font-family: "Roboto", sans-serif;
+            transition: background-color 0.1s ease-in-out;
+            cursor: pointer;
+            user-select: none;
+        }
+        button:hover {
+            background-color: var(--dark2);
+        }
+        button:active {
+            background-color: var(--dark3);
+        }
     </style>
     <input type="file" id="file-click-input" style="position:fixed;top:-1000px"></input>
     <main>
@@ -63,7 +83,7 @@
             <h2>Hours</h2>
             <div id="hours">0h 0m</div>
         </div>
-        <button onclick="copyTimes()"></button>
+        <button onclick="copyTimes()">Copy times</button>
         <div class="hsep"></div>
         <section class="entries"></section>
         <div style="flex-grow: 1;"></div>
