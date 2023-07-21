@@ -475,7 +475,7 @@ class Game {
         ? this.selector(
             "Orphan Exceptions",
             this.renderOrphanExceptions,
-            this.orphanExceptions.count
+            this.orphanExceptions.length
           )
         : null,
       hr(),
