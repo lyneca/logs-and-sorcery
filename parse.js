@@ -243,15 +243,25 @@ function heading(text, level = 2) {
   return `<h${level}>${text}</h${level}>`;
 }
 
-function screenshot(event, element) {
+function screenshot(event, element, title) {
   event.preventDefault();
   event.stopPropagation();
+  console.log(element);
   if (element.querySelector(".event-hidden")) {
     expandException(element);
   }
-  html2canvas(element).then((canvas) => {
+  html2canvas(element
+  //  , {
+  //  ignoreElements: element => {
+  //    try {
+  //    element.style.transition = "";
+  //    } catch {}
+  //    return true;
+  //  }
+  //}
+  ).then((canvas) => {
     canvas.toBlob(function (blob) {
-      saveAs(blob, "exception.png");
+      saveAs(blob, `${title}.png`);
     });
   });
 }
@@ -315,6 +325,18 @@ class Game {
     this.lastEvent = null;
   }
 
+  findOrCreateMod(name, folder) {
+    let found = this.findModByName(name) ?? this.findModByFolder(folder);
+    if (found) {
+      if (folder && found.name == found.folder)
+        found.folder = folder;
+      return found;
+    }
+    let mod = new Mod(name, folder ?? name);
+    game.mods.push(mod);
+    return mod;
+  }
+
   findModByName(name) {
     let found = this.mods.filter((mod) => mod.name == name);
     if (found.length > 0) return found[0];
@@ -350,26 +372,20 @@ class Game {
   }
 
   findModByData(id, address) {
-    // console.log(`Searching for ${id} or ${address}...`)
     if (address.startsWith("Bas.")) return null;
     if (address.split(".").length >= 3) {
       let [author, mod, ...data] = address.split(".");
       if (id.split(".").length > 1) {
         id = id.split(".")[id.split(".").length - 1];
       }
-      // console.log(`Searching mods for ${author} and ${mod} - '"${mod}"|'"${author}"`)
       let results = this.modFinder.search(`'"${mod}"|'"${author}"`);
       results.forEach((result) => {});
-      // console.log(results)
       if (results.length > 0 && results[0].score < 0.2) {
-        // console.log(`found mod ${results[0].item.folder} score ${results[0].score} via mod name ${mod}`)
         return results[0].item;
       }
 
-      // console.log(`Searching mod data for ${author}, ${mod} and ${id}`)
       results = this.dataFinder.search(`'"${mod}" '"${author}" '"${id}"`);
       if (results.length > 0 && results[0].score < 0.2) {
-        // console.log(`found mod ${results[0].item.folder} score ${results[0].score} via result ${id}`)
         return this.findModByFolder(results[0].item.folder);
       }
     }
@@ -378,7 +394,6 @@ class Game {
     }
     let data = this.dataFinder.search(id);
     if (data.length > 0) {
-      // console.log(`found mod ${data[0].item.folder} score ${data[0].score} via data ${id}`)
       return this.findModByFolder(data[0].item.folder);
     }
   }
@@ -419,7 +434,6 @@ class Game {
     this.collapseTimeline();
     this.collapseOrphanExceptions();
     this.missingData.forEach((data) => {
-      // console.log(`Searching for ${data.id}`)
       game.findModByData(data.id, data.address)?.missingData.push({
         address: data.address,
         id: data.id,
@@ -594,13 +608,14 @@ class Game {
 let game = new Game();
 
 class Mod {
-  constructor(folder, name) {
+  constructor(name, folder) {
     this.name = name;
     this.folder = folder;
     this.assemblies = [];
     this.namespaces = new Set();
     this.catalogs = [];
     this.loadErrors = [];
+    this.missingDLLs = [];
     this.missingData = [];
     this.exceptions = [];
     this.collapsed = [];
@@ -629,7 +644,7 @@ class Mod {
   }
 
   loadErrorCount() {
-    let count = this.loadErrors.length + this.missingData.length;
+    let count = this.loadErrors.length + this.missingDLLs.length + this.missingData.length;
     return count > 0 ? `<span class="mod-error-count">${count}</span>` : "";
   }
 
@@ -640,7 +655,7 @@ class Mod {
 
   sortKey() {
     return (
-      this.loadErrors.length + this.missingData.length + this.exceptions.length
+      this.loadErrors.length + this.missingDLLs.length + this.missingData.length + this.exceptions.length
     );
   }
 
@@ -688,6 +703,11 @@ class Mod {
       "Details",
       false
     );
+    let missingDLLs = objectListToTable(
+      this.missingDLLs,
+      undefined,
+      "Missing DLLs"
+    );
     let loadErrors = objectListToTable(
       this.loadErrors,
       undefined,
@@ -708,7 +728,7 @@ class Mod {
               .join("")
           )
         : "";
-    return [table, loadErrors, missingData, exceptions]
+    return [table, loadErrors, missingDLLs, missingData, exceptions]
       .filter((elem) => elem)
       .join(hr());
     /* 
@@ -732,6 +752,7 @@ class Exception {
     this.eventType = "exception";
     this.error = error;
     this.lines = [];
+    this.extra = "";
     this.tags = new Set();
     this.mods = new Set();
     this.count = 1;
@@ -754,7 +775,6 @@ class Exception {
         game.findModByNamespace(mod) ??
         game.fuzzyFindMod(mod) ??
         game.findModByAssembly(mod);
-      console.log(found);
       if (found) {
         foundMods.add(found.name);
         game.mods
@@ -781,6 +801,26 @@ class Exception {
         "delete-save",
         "Your game appears to be unable to load, due to your save file containing an unknown spell."
       );
+    }
+
+    if (this.type == "Exception" && this.error.startsWith("Dependency Exception --->")) {
+      this.type = "Exception (Dependency Exception)"
+      match(
+        this.error,
+        /Dependency Exception ---> (?<baseException>.+): (?<baseExceptionError>.+) ---> (?<exception>.+?): .+ : (?<error>.+?): '(?<file>.+)'./,
+        ({ baseException, baseExceptionError, exception, error, file }) => {
+          let baseType = exception.split(".").pop();
+          this.type = baseType + " (Dependency Exception)"
+          this.error = error;
+          this.extra = div(file.replace(/\\/g, "\/").replace(/.+BladeAndSorcery_Data/, span("[game directory]", "fade")), "code");
+        }
+      );
+    }
+
+    if (this.type == "MissingMethodException") {
+      match(this.error, /Method not found: (?<type>.+?(\<.+\>)?) (?<signature>.+)/, ({ type, signature }) => {
+        this.error = "Method not found: " + span(new ExceptionLine(signature).getPath(), "code");
+      });
     }
   }
 
@@ -810,7 +850,7 @@ class Exception {
                           }</p></i>`
                       )
                       .join("")}
-                    <i class="tag icofont-camera screenshot" alt="Screenshot exception" onclick="screenshot(event, this.parentElement.parentElement)"></i>
+                    <i class="tag icofont-camera screenshot" alt="Screenshot exception" onclick="screenshot(event, this.parentElement.parentElement, '${this.type}')"></i>
                     </span>
                     <div class="event-title">${
                       count > 1
@@ -819,9 +859,9 @@ class Exception {
                     }${this.type}</div>
                     ${
                       [...this.mods].length > 0
-                        ? `<span class="exception-title fade">${[
-                            ...this.mods,
-                          ].map((mod) => div(mod, "exception-mod"))}</span>`
+                        ? `<div class="exception-title fade">${[...this.mods]
+                            .map((mod) => span(mod, "exception-mod"))
+                            .join(" ")}</div>`
                         : ""
                     }
                     ${
@@ -841,6 +881,8 @@ class Exception {
                              .map((line) => line.render())
                              .join("")}</div>
                            </div>`
+                        : this.extra
+                        ? `<div class="event-details event-hidden"><div class="exception-extra">${this.extra}</div></div>`
                         : ""
                     }
                   </div>
@@ -906,22 +948,22 @@ class ExceptionLine {
             .filter((portion) => IGNORED_ARGS.indexOf(portion) == -1)
             .map((portion) => `<span class="arg dim">${portion}</span>`);
           portions.push(
-            `<span class="arg">${this.replaceArgTypes(
+            `<span class="arg type">${this.replaceArgTypes(
               argPortions[argPortions.length - 1]
             )}</span>`
           );
           return (
             portions.join("") +
             (part.split(" ").length > 1
-              ? ` <span>${part.split(" ")[1]}</span>`
+              ? ` <span class="arg name">${part.split(" ")[1]}</span>`
               : "")
           );
         } else {
-          return `<span class="arg">${this.replaceArgTypes(
+          return `<span class="arg type">${this.replaceArgTypes(
             argPortions[0]
           )}</span>${
             part.split(" ").length > 1
-              ? ` <span>${part.split(" ")[1]}</span>`
+              ? ` <span class="arg name">${part.split(" ")[1]}</span>`
               : ""
           }`;
         }
@@ -933,7 +975,7 @@ class ExceptionLine {
         .map((part) => `${part}`)
         .join(`<span class="dim">,</span>|`)
         .split("|")
-        .map((part) => `<span class="block">${part}</span>`)
+        .map((part) => `<span class="no-break">${part}</span>`)
         .join(" ");
       return `${funcPart} <span>(</span>${argsString}<span>)</span>`;
     }
@@ -1050,7 +1092,6 @@ function parse(lines) {
     line = line.replace("/", "\\");
 
     match(line, LOG_REGEX, (groups) => {
-      console.log("Boop");
       metadata = groups;
       line = line.replace(LOG_REGEX, "");
     });
@@ -1100,31 +1141,15 @@ function parse(lines) {
       case "default":
         matchSystemInfo(line);
 
-        // Initial identification of mods
-        match(
-          line,
-          /\[ModManager\] Added valid mod folder: (?<folder>.+)\. Mod: (?<name>.+)/,
-          (groups) => {
-            game.mods.push(new Mod(groups.folder, groups.name));
-          }
-        );
-        match(
-          line,
-          /Loaded mod catalog (?<name>.+) by (?<author>.+)/,
-          (groups) => {
-            game.findModByName(groups.name).author = groups.author;
-          }
-        );
-
         // Match mod assembly
         match(
           line,
-          /\[ModManager\]\[Assembly\] - Loading assembly: (?<path>([^\\]+\\)+)(?<dll>.+\.dll)/,
-          (groups) => {
-            let folder = groups.path.split("\\")[0];
-            game.findModByFolder(folder)?.assemblies.push({
-              path: groups.path.replace(/\\$/, "").replace(/\\/, "/"),
-              dll: groups.dll,
+          /\[ModManager\]\[Assembly\]\[(?<mod>.+?)\] Loading Assembly: (?<path>([^\\]+\\)+)(?<dll>.+\.dll)/,
+          ({ mod, path, dll }) => {
+            let folder = path.split("\\")[0];
+            game.findOrCreateMod(mod, folder)?.assemblies.push({
+              path: path.replace(/\\$/, "").replace(/\\/, "/"),
+              dll: dll,
             });
           }
         );
@@ -1132,22 +1157,20 @@ function parse(lines) {
         // Match mod debug symbols
         match(
           line,
-          /\[ModManager\]\[Assembly\] - Assembly has debug symbols: (?<path>([^\\]+\\)+)(?<dll>.+\.pdb)/,
-          (groups) => {
-            let folder = groups.path.split("\\")[0];
-            game.findModByFolder(folder)?.tags.add("pdb");
+          /\[ModManager\]\[Assembly\]\[(?<mod>.+?)\] Loading Assembly Debug Symbols: (?<path>([^\\]+\\)+)(?<dll>.+\.pdb)/,
+          ({ mod, path, dll }) => {
+            let folder = path.split("\\")[0];
+            game.findOrCreateMod(mod, folder)?.tags.add("pdb");
           }
         );
 
         // Match mod catalog json file
         match(
           line,
-          /Load mod Addressable Assets catalog: .+StreamingAssets\\Mods\\(?<path>([^\\]+\\)+)(?<catalog>catalog_.+\.json)/,
-          (groups) => {
-            let folder = groups.path.split("\\")[0];
-            game.findModByFolder(folder)?.catalogs.push({
-              path: groups.path.replace(/\\$/, "").replace(/\\/, "/"),
-              catalog: groups.catalog,
+          /\[ModManager\]\[Addressable\]\[(?<mod>.+?)\] - Loading Addressable Assets Catalog: .*(?<catalog>catalog_.+\.json)/,
+          ({ mod, catalog }) => {
+            game.findOrCreateMod(mod)?.catalogs.push({
+              catalog: catalog,
             });
           }
         );
@@ -1155,14 +1178,16 @@ function parse(lines) {
         // Match default data being overridden
         match(
           line,
-          /\[(?<folder>.+)\] - Overriding default data: \[(?<type>.+)\]\[(?<class>.+)\]\[(?<id>.+)\] with: .+StreamingAssets\\Mods\\(?<path>([^\\]+\\)+)(?<file>.+\.json)/,
-          (groups) => {
-            game.findModByFolder(groups.folder)?.overrides.push({
-              type: groups.type,
-              class: groups.class,
-              id: groups.id,
-              path: groups.path.replace(/\\$/, "").replace(/\\/, "/"),
-              file: groups.file,
+          /\[ModManager\]\[Catalog\]\[(?<mod>.+?)\] Overriding: \[(?<type>.+)\]\[(?<className>.+)\]\[(?<id>.+)\] with: (?<path>([^\\]+\\)+)(?<file>.+\.json)/,
+          ({ mod, type, className, id, path, file }) => {
+            let folder = path.split("\\")[0];
+            console.log(mod)
+            game.findOrCreateMod(mod, folder)?.overrides.push({
+              type: type,
+              class: className,
+              id: id,
+              path: path.replace(/\\$/, "").replace(/\\/, "/"),
+              file: file,
             });
           }
         );
@@ -1215,15 +1240,17 @@ function parse(lines) {
         match(
           prev,
           /LoadJson : Cannot read json file .+StreamingAssets\\Mods\\(?<path>([^\\]+\\)+)(?<json>.+\.json) ?\((?<error>.+)\)/,
-          (groups) => {
+          ({ path, json }) => {
             match(
               line,
               /Could not load assembly '(?<assembly>.+)'\./,
-              (subGroup) => {
+              ({ assembly }) => {
+                let mod = game.findOrCreateMod(path.split(/\\/)[0]);
+                mod.missingDLLs.push({ json: json, possible_dll_name: code(assembly + ".dll") })
                 game.addSuggestion("check-dll", {
-                  mod: game.findModByFolder(groups.path.split(/\\/)[0]).name,
-                  json: code(groups.json),
-                  possible_dll_name: code(subGroup.assembly + ".dll"),
+                  mod: mod.name,
+                  json: code(json),
+                  possible_dll_name: code(assembly + ".dll"),
                 });
               }
             );

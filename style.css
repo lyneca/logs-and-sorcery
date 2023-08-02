@@ -327,7 +327,7 @@ pre#directory, pre.directory {
 
 .exception-title {
     padding-top: 5px;
-    display: inline-block;
+    display: block;
     font-style: italic;
 }
 
@@ -375,9 +375,22 @@ pre#directory, pre.directory {
     padding: 10px;
 }
 
+.exception-extra {
+    background-color: rgba(0, 0, 0, 0.3);
+    box-shadow: 0 0 4px 4px rgba(0, 0, 0, 0.1) inset;
+    border-radius: 5px;
+    margin: auto;
+    padding: 10px;
+}
+
 .exception-line-location, .exception-line-filename, .exception-line-line {
     font-family: "Fira Code", monospace;
     line-break: anywhere;
+}
+
+.no-break {
+    break-inside: avoid;
+    display: inline-block;
 }
 
 .exception-line-filename, .exception-line-line {
@@ -412,6 +425,10 @@ span.prefix {
 
 .arg {
     display: inline-block;
+}
+
+.arg.type {
+    color: var(--neutral_yellow);
 }
 
 .event-hidden {
