@@ -443,8 +443,14 @@ class Game {
   }
 
   sort() {
-    this.mods.sort((mod) => mod.name).reverse();
-    this.mods.sort((a, b) => a.sortKey() - b.sortKey()).reverse();
+    this.mods.sort((a, b) => 
+        (a.name.toLowerCase() < b.name.toLowerCase()) ? -1 : (a.name.toLowerCase() > b.name.toLowerCase() ? 1 : 0)
+).reverse();
+    this.mods
+      .sort((a, b) =>
+        (a.sortKey() < b.sortKey()) ? -1 : (a.sortKey() > b.sortKey() ? 1 : 0)
+      )
+      .reverse();
   }
 
   addSuggestion(tag, reason) {
@@ -654,9 +660,8 @@ class Mod {
   }
 
   sortKey() {
-    return (
-      this.loadErrors.length + this.missingDLLs.length + this.missingData.length + this.exceptions.length
-    );
+    let value = this.loadErrors.length + this.missingDLLs.length + this.missingData.length + this.exceptions.length;
+    return value;
   }
 
   renderList() {
