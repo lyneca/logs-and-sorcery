@@ -1,6 +1,7 @@
 :root {
     --bg: var(--dark0);
     --layer: var(--dark1);
+    --layer2: #433f3d;
     --fg: var(--light0);
     --success: var(--faded_green);
     --error: var(--faded_red);
@@ -311,6 +312,10 @@ pre#directory, pre.directory {
     position: relative;
 }
 
+.event:last-of-type {
+    margin-bottom: 0px;
+}
+
 .global > .event-title {
     font-size: 20px;
     margin: auto;
@@ -322,7 +327,12 @@ pre#directory, pre.directory {
 
 .event-container {
     background-color: var(--layer);
+    transition: background-color 0.2s ease-in-out;
     padding: 10px;
+}
+
+.event-container:hover {
+    background-color: var(--layer2);
 }
 
 .exception-title {

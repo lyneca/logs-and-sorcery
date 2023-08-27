@@ -10,12 +10,13 @@ const LOG_REGEX =
 const IGNORED_ARGS = [
   "Newtonsoft.",
   "ThunderRoad.",
+  "Collections.",
   "Generic.",
   "UnityEngine.",
   "System.",
-  "Collections.",
   "ResourceManagement.",
   "AsyncOperations.",
+  "StateTracker.",
 ];
 
 const SUGGESTIONS = {
@@ -31,6 +32,14 @@ const SUGGESTIONS = {
       "Sometimes, antivirus software can treat DLL files (which is where mod scripting and logic lives) as suspicious files. " +
       "Double-check that your scripted mods each contain a .dll file.",
     cols: ["mod", "json", "possible_dll_name"],
+  },
+  "missing-method": {
+    title:
+      "Ensure your mods are up to date, or remove ones that aren't yet updated.",
+    description:
+      "One of your mods attempted to run code that doesn't exist in the version of the game you are running.<br>" +
+      "This may be because a minor version update broke it - e.g. if the mod worked on 12.2, but you updated to 12.3.",
+    cols: ["mods", "method"],
   },
   pirated: {
     title:
@@ -366,6 +375,8 @@ class Game {
   fuzzyFindMod(mod) {
     let search = game.modFinder.search(mod);
     if (search.length > 0) {
+      if (search[0].item.name != "Mystic Hands")
+        console.log({mod, result: search[0]})
       return search[0].item;
     }
     return null;
@@ -691,6 +702,10 @@ class Mod {
     this.collapsed = [...Object.values(collapsed)];
   }
 
+  addException(exception, reason) {
+    this.exceptions.push(exception);
+  }
+
   renderDetails() {
     let table = objectToTable(
       {
@@ -772,26 +787,40 @@ class Exception {
 
   complete() {
     let foundMods = new Set();
-    if (this.mods.size == 0) {
-      game.orphanExceptions.push(this);
+    let parts = this.type.split(/\./);
+    if (parts.length > 1) {
+      let preType = parts
+        .slice(0, -1)
+        .filter((portion) => IGNORED_ARGS.indexOf(portion + ".") == -1)
+        .join(".");
+      this.type = preType ? (preType + "." + parts[parts.length - 1]) : parts[parts.length - 1];
     }
     this.mods.forEach((mod) => {
-      let found =
-        game.findModByNamespace(mod) ??
-        game.fuzzyFindMod(mod) ??
+      let found = game.findModByNamespace(mod);
+      let reason = "nsp";
+      if (!found) {
+        found = game.fuzzyFindMod(mod);
+        reason = "fzf";
+      }
+      if (!found) {
         game.findModByAssembly(mod);
+        reason = "asm";
+      }
+
       if (found) {
         foundMods.add(found.name);
         game.mods
           .find((mod) => mod.folder == found.folder)
-          .exceptions.push(this);
+          .addException(this, reason);
         this.tags.add("modded");
-      } else {
-        game.orphanExceptions.push(this);
       }
     });
 
     this.mods = foundMods;
+
+    if (this.mods.size == 0) {
+      game.orphanExceptions.push(this);
+    }
 
     if (!this.tags.has("modded") && !this.tags.has("harmony"))
       this.tags.add("unmodded");
@@ -824,6 +853,7 @@ class Exception {
 
     if (this.type == "MissingMethodException") {
       match(this.error, /Method not found: (?<type>.+?(\<.+\>)?) (?<signature>.+)/, ({ type, signature }) => {
+        game.addSuggestion("missing-method", {mods: Array.from(this.mods).join(", "), method: code(new ExceptionLine(signature).getPath())})
         this.error = "Method not found: " + span(new ExceptionLine(signature).getPath(), "code");
       });
     }
@@ -949,7 +979,7 @@ class ExceptionLine {
         if (argPortions.length > 1) {
           let portions = argPortions
             .slice(0, argPortions.length - 1)
-            .map((portion) => portion.replace(/\+|\\/, "."))
+            .map((portion) => portion.replace(/\+|\\|\//g, "."))
             .filter((portion) => IGNORED_ARGS.indexOf(portion) == -1)
             .map((portion) => `<span class="arg dim">${portion}</span>`);
           portions.push(
@@ -1094,7 +1124,7 @@ function parse(lines) {
   let metadata = {};
 
   lines.forEach((line) => {
-    line = line.replace("/", "\\");
+    line = line.replace(/\//g, "\\");
 
     match(line, LOG_REGEX, (groups) => {
       metadata = groups;
@@ -1122,7 +1152,7 @@ function parse(lines) {
 
     match(
       line,
-      /^(Exception in Update Loop: )?(System\.)?(?<type>(\w+\.)*\w*Exception)(: (?<error>.+?))?( assembly:.+)?$/,
+      /^(Exception in (ThunderScript )?Update Loop: )?(System\.)?(?<type>(\w+\.)*\w*Exception)(: (?<error>.+?))?( assembly:.+)?$/,
       (groups) => {
         if (state == "exception") {
           // we just had an exception, time to save it
@@ -1146,6 +1176,14 @@ function parse(lines) {
       case "default":
         matchSystemInfo(line);
 
+        // Match old (< U12.3) mod detection
+        match(
+          line,
+          /Added valid mod folder: (?<folder>.+). Mod: (?<mod>.+)/,
+          ({ folder, mod }) => {
+            game.findOrCreateMod(mod, folder);
+          }
+        );
         // Match mod assembly
         match(
           line,
@@ -1186,7 +1224,7 @@ function parse(lines) {
           /\[ModManager\]\[Catalog\]\[(?<mod>.+?)\] Overriding: \[(?<type>.+)\]\[(?<className>.+)\]\[(?<id>.+)\] with: (?<path>([^\\]+\\)+)(?<file>.+\.json)/,
           ({ mod, type, className, id, path, file }) => {
             let folder = path.split("\\")[0];
-            console.log(mod)
+            console.log(mod);
             game.findOrCreateMod(mod, folder)?.overrides.push({
               type: type,
               class: className,
@@ -1204,7 +1242,7 @@ function parse(lines) {
           (groups) => {
             game.findModByFolder(groups.mod)?.json.push({
               file: groups.file,
-              path: groups.path.replace(/\\/, "/"),
+              path: groups.path.replace(/\\/g, "/"),
             });
           }
         );
@@ -1251,7 +1289,10 @@ function parse(lines) {
               /Could not load assembly '(?<assembly>.+)'\./,
               ({ assembly }) => {
                 let mod = game.findOrCreateMod(path.split(/\\/)[0]);
-                mod.missingDLLs.push({ json: json, possible_dll_name: code(assembly + ".dll") })
+                mod.missingDLLs.push({
+                  json: json,
+                  possible_dll_name: code(assembly + ".dll"),
+                });
                 game.addSuggestion("check-dll", {
                   mod: mod.name,
                   json: code(json),
@@ -1374,7 +1415,7 @@ function parse(lines) {
               exception.tags.add("harmony");
             if (
               !groups.location.match(
-                /^(ThunderRoad|Unity|DelegateList|RainyReignGames|ONSPAudioSource|SteamVR|OVR|OculusVR|System|\(wrapper|Valve|delegate|MonoBehaviourCallbackHooks|Newtonsoft|TMPro|UsingTheirs)/
+                /^(ThunderRoad|Unity|DelegateList|RainyReignGames|ONSPAudioSource|SteamVR|OVR|OculusVR|System|StateTracker|\(wrapper|Valve|delegate|MonoBehaviourCallbackHooks|Newtonsoft|TMPro|UsingTheirs)/
               )
             ) {
               let match = groups.location.match(/^(?<namespace>(\w|\+)+)\./);
@@ -1396,12 +1437,12 @@ function parse(lines) {
 function matchSystemInfo(line) {
   line = line.replace(/\//g, "\\");
   match(line, /Mono path\[0\] = '(?<path>.+)'$/, (groups) => {
-    game.system.game_directory = groups.path.replace("\\", "/");
+    game.system.game_directory = groups.path.replace(/\\/g, "/");
   });
   match(line, /Mono path\[0\] = '.+(Oculus)?\\Software.+/i, () => {
     game.system.platform = "Oculus";
   });
-  match(line, /Mono path\[0\] = '.+steamapps\\common.+/i, () => {
+  match(line, /Mono path\[0\] = '.+steam\\steamapps\\common.+/i, () => {
     game.system.platform = "Steam";
   });
   match(
