@@ -19,6 +19,10 @@ const IGNORED_ARGS = [
   "StateTracker.",
 ];
 
+const COMMON_NAMESPACES = {
+  TOR: "TheOuterRim"
+}
+
 const SUGGESTIONS = {
   "delete-save": {
     title: "Delete your save file.",
@@ -31,7 +35,7 @@ const SUGGESTIONS = {
     description:
       "Sometimes, antivirus software can treat DLL files (which is where mod scripting and logic lives) as suspicious files. " +
       "Double-check that your scripted mods each contain a .dll file.",
-    cols: ["mod", "json", "possible_dll_name"],
+    cols: ["mod", "json", "possible_missing_dll_name"],
   },
   "missing-method": {
     title:
@@ -255,7 +259,6 @@ function heading(text, level = 2) {
 function screenshot(event, element, title) {
   event.preventDefault();
   event.stopPropagation();
-  console.log(element);
   if (element.querySelector(".event-hidden")) {
     expandException(element);
   }
@@ -280,6 +283,10 @@ function code(string) {
   return `<code>${string}</code>`;
 }
 
+function italic(string) {
+  return `<span class="italic">${string}</span>`;
+}
+
 function icon(name, tooltip, color) {
   return `<i class="pad icofont-${name}"${
     color ? ` style="color: ${color}` : ""
@@ -294,9 +301,11 @@ function div(string, className) {
   return `<div${className ? ' class="' + className + '"' : ""}>${string}</div>`;
 }
 
-function span(string, className) {
+function span(string, className, params) {
   return `<span${
     className ? ' class="' + className + '"' : ""
+  }${
+    params ? Object.entries(params).map(([key, value]) => `${key}="${value}"`).join(" ") : ""
   }>${string}</span>`;
 }
 
@@ -317,6 +326,10 @@ function wrapDetails(title, contents) {
   ${heading(title)}
   ${contents}
   </div>`;
+}
+
+function replaceNamespaces(namespace) {
+  return COMMON_NAMESPACES[namespace] ?? namespace;
 }
 
 class Game {
@@ -359,24 +372,29 @@ class Game {
   }
 
   findModByNamespace(namespace) {
-    let found = this.mods.filter((mod) => mod.namespaces.has(namespace));
+    let found = this.mods.filter((mod) => mod.namespaces.has(namespace) || mod.folder == namespace);
     if (found.length > 0) return found[0];
     return null;
   }
 
   findModByAssembly(assembly) {
-    let found = this.mods.filter((mod) =>
-      mod.assemblies.filter((eachAssembly) => eachAssembly.dll == assembly)
+    console.log(`Looking for ${assembly}...`)
+    let found = this.mods.filter(
+      (mod) =>
+        mod.assemblies.filter(
+          (eachAssembly) => eachAssembly.dll == assembly + ".dll"
+        ).length > 0
     );
+    console.log(found);
+    console.log("Done looking!")
     if (found.length > 0) return found[0];
+    console.log(`Found ${found[0]}!`)
     return null;
   }
 
   fuzzyFindMod(mod) {
     let search = game.modFinder.search(mod);
     if (search.length > 0) {
-      if (search[0].item.name != "Mystic Hands")
-        console.log({mod, result: search[0]})
       return search[0].item;
     }
     return null;
@@ -443,6 +461,7 @@ class Game {
     this.exceptions.forEach((exception) => exception.complete());
     this.mods.forEach((mod) => mod.complete());
     this.collapseTimeline();
+    this.collapseSuggestions();
     this.collapseOrphanExceptions();
     this.missingData.forEach((data) => {
       game.findModByData(data.id, data.address)?.missingData.push({
@@ -583,6 +602,22 @@ class Game {
         </div>`;
   }
 
+  collapseSuggestions() {
+    Object.keys(this.suggestions).forEach((tag) => {
+      this.suggestions[tag] = this.suggestions[tag].sort((a, b) => JSON.stringify(a) > JSON.stringify(b) ? 1 : -1);
+      let newReasonList = [];
+      let lastHash = "";
+      this.suggestions[tag].forEach(reason => {
+        const json = JSON.stringify(reason);
+        if (json != lastHash) {
+          lastHash = json;
+          newReasonList.push(reason);
+        }
+      })
+      this.suggestions[tag] = newReasonList;
+    })
+  }
+
   collapseTimeline() {
     const collapsed = [];
     let lastEvent = null;
@@ -702,7 +737,7 @@ class Mod {
     this.collapsed = [...Object.values(collapsed)];
   }
 
-  addException(exception, reason) {
+  addException(exception) {
     this.exceptions.push(exception);
   }
 
@@ -776,6 +811,7 @@ class Exception {
     this.tags = new Set();
     this.mods = new Set();
     this.count = 1;
+    this.modReasons = {}
   }
 
   containsPath(path) {
@@ -797,21 +833,22 @@ class Exception {
     }
     this.mods.forEach((mod) => {
       let found = game.findModByNamespace(mod);
-      let reason = "nsp";
+      let reason = `Found by namespace '${mod}'`;
       if (!found) {
-        found = game.fuzzyFindMod(mod);
-        reason = "fzf";
+        found = game.findModByAssembly(replaceNamespaces(mod));
+        if (found) reason = `Found by assembly '${replaceNamespaces(mod)}'`;
       }
       if (!found) {
-        game.findModByAssembly(mod);
-        reason = "asm";
+        found = game.fuzzyFindMod(mod);
+        if (found) reason = "Found via fuzzy matching, may not be accurate";
       }
 
       if (found) {
         foundMods.add(found.name);
+        this.modReasons[found.name] = reason;
         game.mods
           .find((mod) => mod.folder == found.folder)
-          .addException(this, reason);
+          .addException(this, found.name, reason);
         this.tags.add("modded");
       }
     });
@@ -853,7 +890,8 @@ class Exception {
 
     if (this.type == "MissingMethodException") {
       match(this.error, /Method not found: (?<type>.+?(\<.+\>)?) (?<signature>.+)/, ({ type, signature }) => {
-        game.addSuggestion("missing-method", {mods: Array.from(this.mods).join(", "), method: code(new ExceptionLine(signature).getPath())})
+        let methodMods = Array.from(this.mods).join(", ");
+        game.addSuggestion("missing-method", {mods: methodMods ? methodMods : italic("(Unknown)"), method: code(new ExceptionLine(signature).getPath())})
         this.error = "Method not found: " + span(new ExceptionLine(signature).getPath(), "code");
       });
     }
@@ -895,7 +933,7 @@ class Exception {
                     ${
                       [...this.mods].length > 0
                         ? `<div class="exception-title fade">${[...this.mods]
-                            .map((mod) => span(mod, "exception-mod"))
+                            .map((mod) => span(mod, `exception-mod`, {title:  this.modReasons[mod]}))
                             .join(" ")}</div>`
                         : ""
                     }
@@ -1224,7 +1262,6 @@ function parse(lines) {
           /\[ModManager\]\[Catalog\]\[(?<mod>.+?)\] Overriding: \[(?<type>.+)\]\[(?<className>.+)\]\[(?<id>.+)\] with: (?<path>([^\\]+\\)+)(?<file>.+\.json)/,
           ({ mod, type, className, id, path, file }) => {
             let folder = path.split("\\")[0];
-            console.log(mod);
             game.findOrCreateMod(mod, folder)?.overrides.push({
               type: type,
               class: className,
@@ -1291,12 +1328,12 @@ function parse(lines) {
                 let mod = game.findOrCreateMod(path.split(/\\/)[0]);
                 mod.missingDLLs.push({
                   json: json,
-                  possible_dll_name: code(assembly + ".dll"),
+                  possible_missing_dll_name: code(assembly + ".dll"),
                 });
                 game.addSuggestion("check-dll", {
                   mod: mod.name,
                   json: code(json),
-                  possible_dll_name: code(assembly + ".dll"),
+                  possible_missing_dll_name: code(assembly + ".dll"),
                 });
               }
             );
@@ -1442,8 +1479,11 @@ function matchSystemInfo(line) {
   match(line, /Mono path\[0\] = '.+(Oculus)?\\Software.+/i, () => {
     game.system.platform = "Oculus";
   });
-  match(line, /Mono path\[0\] = '.+steam\\steamapps\\common.+/i, () => {
+  match(line, /Mono path\[0\] = '.+\\steamapps\\common.+/i, () => {
     game.system.platform = "Steam";
+  });
+  match(line, /Mono path\[0\] = '.+(Downloads|Desktop).*\\steamapps\\common.+/i, () => {
+    game.system.platform = null;
   });
   match(
     line,
