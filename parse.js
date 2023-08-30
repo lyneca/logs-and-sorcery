@@ -19,6 +19,12 @@ const IGNORED_ARGS = [
   "StateTracker.",
 ];
 
+const TAG_ICONS = {
+  dll: "plugin",
+  pdb: "search-2",
+  harmony: "screw-driver"
+}
+
 const COMMON_NAMESPACES = {
   TOR: "TheOuterRim"
 }
@@ -35,7 +41,7 @@ const SUGGESTIONS = {
     description:
       "Sometimes, antivirus software can treat DLL files (which is where mod scripting and logic lives) as suspicious files. " +
       "Double-check that your scripted mods each contain a .dll file.",
-    cols: ["mod", "json", "possible_missing_dll_name"],
+    cols: ["mod", "possible_missing_dll_name"],
   },
   "missing-method": {
     title:
@@ -285,6 +291,10 @@ function code(string) {
 
 function italic(string) {
   return `<span class="italic">${string}</span>`;
+}
+
+function bold(string) {
+  return `<strong>${string}</strong>`;
 }
 
 function icon(name, tooltip, color) {
@@ -715,13 +725,17 @@ class Mod {
     game.selectors[`mod-${slug}`] = () => this.renderDetails();
     return `<div class="mod" onclick="clickButton('mod-${slug}')" id="mod-${slug}">
         <div class="mod-headers">
-            <div class="mod-title">${this.name}</div>
+            <div class="mod-title">${this.name} ${this.renderTags()}</div>
             <div class="mod-errors">
                 ${this.loadErrorCount()}
                 ${this.exceptionCount()}
             </div>
         </div>
         </div>`;
+  }
+
+  renderTags() {
+    return Array.from(this.tags).map(tag => TAG_ICONS[tag] ? `<i class='tag-icon icofont-${TAG_ICONS[tag]}'></i>` : '').join('')
   }
 
   collapseExceptions() {
@@ -1223,15 +1237,20 @@ function parse(lines) {
           }
         );
         // Match mod assembly
+        // [ModManager][Assembly] - Loading assembly: Wand/WandModule.dll
+
+
         match(
           line,
-          /\[ModManager\]\[Assembly\]\[(?<mod>.+?)\] Loading Assembly: (?<path>([^\\]+\\)+)(?<dll>.+\.dll)/,
+          /\[ModManager\]\[Assembly\]((\[(?<mod>.+?)\])| -) Loading [Aa]ssembly: (?<path>([^\\]+\\)+)(?<dll>.+\.dll)/,
           ({ mod, path, dll }) => {
             let folder = path.split("\\")[0];
-            game.findOrCreateMod(mod, folder)?.assemblies.push({
+            let foundMod = game.findOrCreateMod(mod, folder);
+            foundMod?.assemblies.push({
               path: path.replace(/\\$/, "").replace(/\\/, "/"),
               dll: dll,
             });
+            foundMod?.tags.add("dll");
           }
         );
 
@@ -1332,7 +1351,6 @@ function parse(lines) {
                 });
                 game.addSuggestion("check-dll", {
                   mod: mod.name,
-                  json: code(json),
                   possible_missing_dll_name: code(assembly + ".dll"),
                 });
               }
@@ -1354,7 +1372,7 @@ function parse(lines) {
           line,
           /Load level (?<level>.+) using mode (?<mode>.+)/,
           (groups) => {
-            game.addEvent(`Loading level ${groups.level}`, undefined, {
+            game.addEvent(`Level ${bold(groups.level)} loading...`, undefined, {
               level: groups.level,
               mode: groups.mode,
             });
@@ -1364,7 +1382,7 @@ function parse(lines) {
           line,
           /Total time to load (?<level>.+): (?<time>.+) sec/,
           (groups) => {
-            game.addEvent(`Loaded level ${groups.level}`, undefined, {
+            game.addEvent(`Level ${bold(groups.level)} finished loading.`, undefined, {
               level: groups.level,
               load_time: `${groups.time}s`,
             });
