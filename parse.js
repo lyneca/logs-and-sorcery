@@ -157,7 +157,8 @@ let startTime = Date.now();
 
 async function maybeTakeABreak() {
   let date = Date.now();
-  if (date - 50 > lastBreak) {
+  let delay = ((date - startTime) / 10000) * 100;
+  if (date - delay > lastBreak) {
     lastBreak = Date.now();
     await takeABreak();
   }
