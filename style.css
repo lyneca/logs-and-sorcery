@@ -594,7 +594,6 @@ code.padded {
     html, body {
         margin: 0;
         height: 100%;
-        overflow: hidden
     }
     main {
         width: 100%;
