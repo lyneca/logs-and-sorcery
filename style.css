@@ -591,6 +591,11 @@ code.padded {
 }
 
 @media screen and (max-width: 1200px) {
+    html, body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden
+    }
     main {
         width: 100%;
         max-width: 100%;
