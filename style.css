@@ -593,6 +593,7 @@ code.padded {
 @media screen and (max-width: 1200px) {
     main {
         width: 100%;
+        max-width: 100%;
     }
     #events {
         width: 90%;
