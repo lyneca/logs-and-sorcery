@@ -203,6 +203,7 @@ async function loadFile(file) {
   document.querySelector(".help").style.opacity = 0;
   setTimeout(() => {
     document.querySelector(".help").style.maxHeight = 0;
+    document.querySelector(".help").style.marginBottom = 0;
     document.querySelector("main").style.maxWidth = "100vw";
     document.querySelector("h1").style.display = "none";
     document.querySelector("#file-input").style.display = "none";
