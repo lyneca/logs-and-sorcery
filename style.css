@@ -597,4 +597,24 @@ code.padded {
     #events {
         width: 90%;
     }
+    section.analysis {
+        flex-direction: column;
+    }
+    .help {
+        max-height: initial;
+    }
+    div#file-input {
+        font-size: 20px;
+        width: 80%;
+    }
+    section.analysis > .vsep {
+        display: block;
+        margin: 10px 0;
+        min-height: 5px;
+        width: 100%;
+        border-radius: 5px;
+        box-sizing: border-box;
+        box-shadow: inset 3px 3px 0 0 rgba(0, 0, 0, 0.1);
+        background-color: rgba(0, 0, 0, 0.4);
+    }
 }
