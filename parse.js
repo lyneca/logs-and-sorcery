@@ -4,6 +4,10 @@ const containers = {
   mods: document.querySelector("#mod-list"),
 };
 
+const PROGRESS_READ = 50;
+const PROGRESS_FINISH = 30;
+const PROGRESS_SORT = 10;
+
 const LOG_REGEX =
   /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2}).(?<microsecond>\d+) (?<level>[A-Z]+) .+?: /;
 
@@ -122,6 +126,8 @@ String.prototype.hashCode = function () {
 
 const fileInput = document.querySelector("#file-input");
 const fileClickInput = document.getElementById("file-click-input");
+const statusDiv = document.getElementById("status")
+const progressBar = document.getElementById("progress-bar")
 fileInput.addEventListener("dragenter", (_) => {
   fileInput.classList.add("dragging");
 });
@@ -140,32 +146,84 @@ fileInput.addEventListener("drop", (e) => {
 fileInput.addEventListener("click", (e) => {
   fileClickInput.click();
 });
-fileClickInput.addEventListener("change", (e) => {
-  loadFile(e.target.files[0]);
+fileClickInput.addEventListener("change", async (e) => {
+  await loadFile(e.target.files[0]);
 });
 
-function loadFile(file) {
+var lastBreak = Date.now()
+
+let takeABreak = () => new Promise((resolve) => setTimeout(resolve));
+let startTime = Date.now();
+
+async function maybeTakeABreak() {
+  let date = Date.now();
+  let delay = ((date - startTime) / 10000) * 100;
+  if (date - delay > lastBreak) {
+    lastBreak = Date.now();
+    await takeABreak();
+  }
+}
+
+async function readFileText(file) {
+  return new Promise((resolve, reject) => {
   const reader = new FileReader();
   reader.readAsText(file);
+    reader.onload = () => {
+      resolve(reader.result);
+    }
+  });
+}
+
+async function sleep(duration) {
+  await new Promise(resolve => setTimeout(() => resolve(), duration))
+}
+
+function hideStatus() {
+  statusDiv.style.display = "none";
+}
+function setStatus(text) {
+  statusDiv.style.display = "block";
+  statusDiv.innerText = text + (text.endsWith('%') ? '' : "...");
+}
+
+function setProgress(amount) {
+  if (amount == 0) progressBar.style.opacity = 1;
+  if (amount == 100) progressBar.style.opacity = 0;
+  progressBar.style.maxWidth = amount + '%';
+}
+
+function cleanup() {
+  containers.mods.replaceChildren([]);
+  document.querySelector("#mod-details").innerHTML = "";
+}
+
+async function loadFile(file) {
+  startTime = Date.now();
+  cleanup();
   document.querySelector(".help").style.opacity = 0;
   setTimeout(() => {
     document.querySelector(".help").style.maxHeight = 0;
+    document.querySelector(".help").style.marginBottom = 0;
     document.querySelector("main").style.maxWidth = "100vw";
+    document.querySelector("h1").style.display = "none";
+    document.querySelector("#file-input").style.display = "none";
   }, 200);
-  reader.onload = () => {
-    let lines = reader.result
-      .replace(/\r\n/g, "\n")
-      .split(/\n/)
-      .map((line) =>
-        line.replace(
-          /^\d+-\d+ \d+:\d+:\d+.\d+\s+\d+\s+\d+ [A-Z] Unity\s+: /g,
-          ""
-        )
-      );
-    parse(lines);
-    game.sort();
-    game.render();
-  };
+  setProgress(0);
+  let lines = await readFileText(file);
+  lines = lines.replace(/\r\n/g, "\n")
+    .split(/\n/)
+    .map((line) =>
+      line.replace(/^\d+-\d+ \d+:\d+:\d+.\d+\s+\d+\s+\d+ [A-Z] Unity\s+: /g, "")
+    );
+  setStatus("Parsing log lines")
+  await parse(lines);
+  setStatus("Sorting mods")
+  await game.sort();
+  setStatus("Rendering page")
+  setProgress(PROGRESS_FINISH + PROGRESS_READ + PROGRESS_SORT);
+  await game.render();
+  hideStatus();
+  setProgress(100);
 }
 
 function niceify(string) {
@@ -190,6 +248,8 @@ function slugify(string) {
 
 function renderValue(value) {
   switch (typeof value) {
+    case "function":
+      return renderValue(value());
     case "string":
       return value.match(/^[A-Z]:[\/\\]/) ||
         (!value.match(/ /) && value.match(/\./))
@@ -307,6 +367,40 @@ function hr() {
   return '<div class="hsep"></div>';
 }
 
+let createHR = () => createDiv("hsep");
+
+function createElement(tag, classes, args, contents) {
+  let element = document.createElement(tag);
+  for (let eachClass of classes.split(" ")) {
+    element.classList.add(eachClass);
+  }
+  if (args) {
+    if (args.id) element.id = args.id;
+    if (args.onclick) element.onclick = args.onclick;
+  }
+  if (contents != null && contents != undefined) {
+    if (Array.isArray(contents)) {
+      element.replaceChildren(...contents);
+    } else {
+      element.replaceChildren(contents);
+    }
+  }
+  return element;
+
+}
+
+function createIcon(icon, classes) {
+  return createElement("i", ["icofont-" + icon, ...classes.split(" ")].join(" "))
+}
+
+function createSpan(classes, args, contents) {
+  return createElement("span", classes, args, contents);
+}
+
+function createDiv(classes, args, contents){
+  return createElement("div", classes, args, contents);
+}
+
 function div(string, className) {
   return `<div${className ? ' class="' + className + '"' : ""}>${string}</div>`;
 }
@@ -344,6 +438,8 @@ function replaceNamespaces(namespace) {
 
 class Game {
   constructor() {
+    this.currentCount = 0;
+    this.maxCount = 0;
     this.mods = [];
     this.exceptions = [];
     this.timeline = [];
@@ -388,17 +484,13 @@ class Game {
   }
 
   findModByAssembly(assembly) {
-    console.log(`Looking for ${assembly}...`)
     let found = this.mods.filter(
       (mod) =>
         mod.assemblies.filter(
           (eachAssembly) => eachAssembly.dll == assembly + ".dll"
         ).length > 0
     );
-    console.log(found);
-    console.log("Done looking!")
     if (found.length > 0) return found[0];
-    console.log(`Found ${found[0]}!`)
     return null;
   }
 
@@ -467,25 +559,82 @@ class Game {
     );
   }
 
-  finish() {
-    this.exceptions.forEach((exception) => exception.complete());
-    this.mods.forEach((mod) => mod.complete());
-    this.collapseTimeline();
-    this.collapseSuggestions();
-    this.collapseOrphanExceptions();
-    this.missingData.forEach((data) => {
+  async incrementProgress() {
+    this.currentCount++;
+    setProgress(PROGRESS_READ + this.currentCount / this.maxCount * PROGRESS_FINISH)
+    await maybeTakeABreak();
+  }
+
+  async finish() {
+    game.system.installed_mods = this.mods.length;
+    containers.mods.replaceChildren([]);
+    containers.mods.appendChild(this.selector("System Info", this.renderGameInfo));
+    clickButton("selector-system-info");
+    this.maxCount =
+      this.exceptions.length +
+      this.mods.length +
+      this.timeline.length +
+      Object.keys(this.suggestions).length +
+      this.missingData.length;
+    setStatus(`Processing ${this.exceptions.length} exceptions`)
+    for (const exception of this.exceptions) {
+      exception.complete()
+      await this.incrementProgress();
+    }
+    this.maxCount += this.orphanExceptions.length;
+    setStatus(`Processing ${this.mods.length} mods`)
+    for (const mod of this.mods) {
+      mod.complete()
+      await this.incrementProgress();
+    }
+    setStatus(`Collapsing ${this.suggestions.length} suggestions`)
+    await this.collapseSuggestions();
+    containers.mods.appendChild(
+      this.selector(
+        "Suggestions",
+        this.renderSuggestions,
+        [...Object.keys(this.suggestions)].length
+      )
+    );
+    setStatus(`Collapsing ${this.timeline.length} timeline events`)
+    await this.collapseTimeline();
+    containers.mods.appendChild(
+      this.selector("Timeline", this.renderTimeline, this.timeline.length)
+    );
+    if (this.orphanExceptions.length > 0) {
+      setStatus(`Collapsing ${this.orphanExceptions.length} orphan exceptions`);
+      await this.collapseOrphanExceptions();
+      containers.mods.appendChild(
+        this.selector(
+          "Orphan Exceptions",
+          this.renderOrphanExceptions,
+          this.orphanExceptions.length
+        )
+      );
+    }
+
+    setStatus(`Matching ${this.missingData.length} missing data entries with mods`)
+    for (let data of this.missingData) {
       game.findModByData(data.id, data.address)?.missingData.push({
         address: data.address,
         id: data.id,
         type: data.type,
       });
-    });
+      await this.incrementProgress();
+    }
   }
 
-  sort() {
-    this.mods.sort((a, b) => 
-        (a.name.toLowerCase() < b.name.toLowerCase()) ? -1 : (a.name.toLowerCase() > b.name.toLowerCase() ? 1 : 0)
-).reverse();
+  async sort() {
+    this.mods
+      .sort((a, b) =>
+        a.name.toLowerCase() < b.name.toLowerCase()
+          ? -1
+          : a.name.toLowerCase() > b.name.toLowerCase()
+          ? 1
+          : 0
+      )
+      .reverse();
+    await maybeTakeABreak();
     this.mods
       .sort((a, b) =>
         (a.sortKey() < b.sortKey()) ? -1 : (a.sortKey() > b.sortKey() ? 1 : 0)
@@ -515,15 +664,8 @@ class Game {
     this.incompatibleMods.push({ mod, version, min_version: minVersion });
   }
 
-  render() {
-    containers.mods.innerHTML = [
-      this.selector("System Info", this.renderGameInfo),
-      this.selector(
-        "Suggestions",
-        this.renderSuggestions,
-        [...Object.keys(this.suggestions)].length
-      ),
-      this.selector("Timeline", this.renderTimeline, this.timeline.length),
+  async render() {
+    for (let entry of [
       this.incompatibleMods.length > 0
         ? this.selector(
             "Incompatible Mods",
@@ -531,19 +673,14 @@ class Game {
             this.incompatibleMods.length
           )
         : null,
-      this.orphanExceptions.length > 0
-        ? this.selector(
-            "Orphan Exceptions",
-            this.renderOrphanExceptions,
-            this.orphanExceptions.length
-          )
-        : null,
-      hr(),
-      ...this.mods.map((mod) => mod.renderList()),
-    ]
-      .filter((elem) => elem != null)
-      .join("");
-    clickButton("selector-system-info");
+      createHR(),
+    ].filter((elem) => elem != null)) {
+      containers.mods.appendChild(entry);
+    }
+    for (let mod of this.mods) {
+      containers.mods.appendChild(mod.renderList());
+      await maybeTakeABreak();
+    }
   }
 
   renderGameInfo() {
@@ -602,18 +739,16 @@ class Game {
   selector(name, callback, count) {
     let slug = slugify(name);
     game.selectors[`selector-${slug}`] = () => callback.call(this);
-    return `<div class="mod" onclick="clickButton('selector-${slug}')" id="selector-${slug}">
-        <div class="mod-headers">
-            <div class="selector-title">${name}</div>
-            <div class="mod-errors">${
-              count > 0 ? `<span class="mod-error-count">${count}</span>` : ""
-            }</div>
-        </div>
-        </div>`;
+    return createDiv("mod", {id: `selector-${slug}`, onclick: () => clickButton(`selector-${slug}`)},
+      createDiv("mod-headers", {}, [
+        createDiv("selector-title", {}, name),
+        createDiv("mod-errors", {}, count > 0 ? createSpan("mod-error-count", {}, count) : null),
+      ])
+    );
   }
 
-  collapseSuggestions() {
-    Object.keys(this.suggestions).forEach((tag) => {
+  async collapseSuggestions() {
+    for (const tag of Object.keys(this.suggestions)) {
       this.suggestions[tag] = this.suggestions[tag].sort((a, b) => JSON.stringify(a) > JSON.stringify(b) ? 1 : -1);
       let newReasonList = [];
       let lastHash = "";
@@ -625,14 +760,15 @@ class Game {
         }
       })
       this.suggestions[tag] = newReasonList;
-    })
+      await this.incrementProgress();
+    }
   }
 
-  collapseTimeline() {
+  async collapseTimeline() {
     const collapsed = [];
     let lastEvent = null;
     let lastEventHash = "";
-    this.timeline.forEach((event) => {
+    for (const event of this.timeline) {
       if (event.eventType == "exception") {
         const json = JSON.stringify(event);
         if (json != lastEventHash) {
@@ -647,14 +783,15 @@ class Game {
         collapsed.push(event);
         lastEventHash = "";
       }
-    });
+      await this.incrementProgress();
+    }
     this.timeline = collapsed;
   }
 
-  collapseOrphanExceptions() {
+  async collapseOrphanExceptions() {
     let collapsed = {};
     let keys = []
-    this.orphanExceptions.forEach((exception) => {
+    for (const exception of this.orphanExceptions) {
       const hash = JSON.stringify(exception).hashCode();
       if (collapsed[hash]) {
         collapsed[hash].count++;
@@ -662,7 +799,8 @@ class Game {
         collapsed[hash] = { exception: exception, count: 1 };
         keys.push(hash);
       }
-    });
+      await this.incrementProgress();
+    }
     this.orphanCollapsed = keys.map(key => collapsed[key]);
   }
 }
@@ -707,12 +845,12 @@ class Mod {
 
   loadErrorCount() {
     let count = this.loadErrors.length + this.missingDLLs.length + this.missingData.length;
-    return count > 0 ? `<span class="mod-error-count">${count}</span>` : "";
+    return count > 0 ? createSpan("mod-error-count", {}, count) : "";
   }
 
   exceptionCount() {
     let count = this.exceptions.length;
-    return count > 0 ? `<span class="mod-exception-count">${count}</span>` : "";
+    return count > 0 ? createSpan("mod-exception-count", {}, count) : "";
   }
 
   sortKey() {
@@ -723,19 +861,16 @@ class Mod {
   renderList() {
     let slug = slugify(this.folder);
     game.selectors[`mod-${slug}`] = () => this.renderDetails();
-    return `<div class="mod" onclick="clickButton('mod-${slug}')" id="mod-${slug}">
-        <div class="mod-headers">
-            <div class="mod-title">${this.name} ${this.renderTags()}</div>
-            <div class="mod-errors">
-                ${this.loadErrorCount()}
-                ${this.exceptionCount()}
-            </div>
-        </div>
-        </div>`;
+    return createDiv("mod", {id: `mod-${slug}`, onclick: () => clickButton(`mod-${slug}`)},
+      createDiv("mod-headers", {}, [
+        createDiv("mod-title", {}, [this.name, ...this.renderTags()]),
+        createDiv("mod-errors", {}, [this.loadErrorCount(), this.exceptionCount()]),
+      ])
+    );
   }
 
   renderTags() {
-    return Array.from(this.tags).map(tag => TAG_ICONS[tag] ? `<i class='tag-icon icofont-${TAG_ICONS[tag]}'></i>` : '').join('')
+    return Array.from(this.tags).map(tag => TAG_ICONS[tag] ? createIcon(TAG_ICONS[tag], 'tag-icon') : '');
   }
 
   collapseExceptions() {
@@ -1167,17 +1302,37 @@ function match(line, re, callback) {
 }
 
 let lineCounter = 0;
+let totalLines = 0;
+let currentLines = 0;
 
-function parse(lines) {
+function setupProgressDisplay() {
+  return {
+    lines_analysed: () => `${currentLines} / ${totalLines}`,
+    mods: () => game.mods.length,
+    exceptions: () => game.exceptions.length,
+    suggestions_found: () => Object.keys(game.suggestions).length
+  };
+}
+
+function refreshProgress(rows) {
+  document.querySelector("#mod-details").innerHTML = "<h2>Progress</h2>" + objectToTable(rows);
+}
+
+async function parse(lines) {
   let state = "default";
   game = new Game();
   let exception = null;
   let prev = "";
   let metadata = {};
 
-  lines.forEach((line) => {
-    line = line.replace(/\//g, "\\");
+  let rows = setupProgressDisplay();
 
+  let count = lines.length;
+  totalLines = count;
+  let i = 0;
+  for (let line of lines) {
+    line = line.replace(/\//g, "\\");
+    await maybeTakeABreak();
     match(line, LOG_REGEX, (groups) => {
       metadata = groups;
       line = line.replace(LOG_REGEX, "");
@@ -1482,11 +1637,17 @@ function parse(lines) {
         break;
     }
     prev = line;
-  });
+    i++;
+    currentLines = i;
+    setStatus(`Reading file: ${Math.round(i / count * 100)}%`);
+    setProgress(Math.round((i / count) * PROGRESS_READ))
+    refreshProgress(rows);
+  }
+
+  startTime = Date.now() - 5000;
 
   if (!game.begun) game.begin();
-  game.finish();
-  console.log(game);
+  await game.finish();
 }
 
 function matchSystemInfo(line) {

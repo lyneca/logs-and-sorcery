@@ -34,6 +34,10 @@ h2, h3 {
     position: relative;
 }
 
+#mod-details h2 {
+    margin: 10px;
+}
+
 .screenshot {
     cursor: pointer !important;
     transition: color 0.2s ease-in-out;
@@ -136,6 +140,30 @@ li {
 
 .pad {
     margin: 5px;
+}
+
+#status {
+    display: none;
+    font-family: "Fira Code", monospace;
+}
+
+.progress {
+    display: block;
+    margin: 10px 0;
+    min-height: 5px;
+    width: 100%;
+    border-radius: 5px;
+    box-sizing: border-box;
+    box-shadow: inset 3px 3px 0 0 rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+    background-color: rgba(0, 0, 0, 0.4);
+}
+
+.progress-bar {
+    background-color: var(--faded_green);
+    max-width: 0%;
+    height: 100%;
+    transition: max-width 0.2s ease-in-out, opacity 0.2s ease-in-out;
 }
 
 pre#directory, pre.directory {
@@ -496,8 +524,11 @@ table.auto-table tr td:first-child {
 table {
     border-collapse: collapse;
     border-spacing: 0 10px;
-    margin: 10px;
     box-sizing: border-box;
+}
+
+#mod-details > table {
+    margin: 10px;
 }
 
 tr {
@@ -535,7 +566,11 @@ pre {
     background-color: rgba(0, 0, 0, 0.3);
 }
 
-code {
+.notable {
+    border-color: rgba(0, 0, 0, 0) !important;
+}
+
+code.padded {
     padding: 3px;
     border-radius: 3px;
     background-color: rgba(0, 0, 0, 0.3);
@@ -556,10 +591,70 @@ code {
 }
 
 @media screen and (max-width: 1200px) {
+    html, body {
+        margin: 0;
+        height: 100%;
+    }
     main {
         width: 100%;
+        max-width: 100%;
+    }
+    .exception .event-title {
+    	word-break: break-word;
     }
     #events {
         width: 90%;
+    }
+    section.analysis {
+        flex-direction: column;
+    }
+    .help {
+        max-height: initial;
+    }
+    div#file-input {
+        font-size: 20px;
+        width: 80%;
+    }
+    section.analysis > .vsep {
+        display: block;
+        margin: 10px 0;
+        min-height: 5px;
+        width: 100%;
+        border-radius: 5px;
+        box-sizing: border-box;
+        box-shadow: inset 3px 3px 0 0 rgba(0, 0, 0, 0.1);
+        background-color: rgba(0, 0, 0, 0.4);
+    }
+    pre {
+        display: block;
+        overflow-x: auto;
+    }
+    #mod-list {
+        flex-direction: row;
+    }
+    .mod {
+        margin: 0;
+    }
+    .mod-errors {
+        position: initial;
+        display: inline ruby;
+    }
+    .selector-title, .mod-title {
+        display: inline ruby;
+    }
+    #mod-list {
+        gap: 5px;
+        padding: 5px;
+        min-height: 39px;
+    }
+    #mod-list > .hsep {
+        display: block;
+        margin: 0;
+        min-width: 5px;
+        max-height: 100%;
+        border-radius: 5px;
+        box-sizing: border-box;
+        box-shadow: inset 3px 3px 0 0 rgba(0, 0, 0, 0.1);
+        background-color: rgba(0, 0, 0, 0.4);
     }
 }
