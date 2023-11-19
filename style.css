@@ -639,8 +639,9 @@ code.padded {
         position: initial;
         display: inline ruby;
     }
-    .selector-title, .mod-title {
+    .selector-title, .mod-title, .mod-headers {
         display: inline ruby;
+        break-inside: avoid;
     }
     #mod-list {
         gap: 5px;
@@ -651,6 +652,7 @@ code.padded {
         display: block;
         margin: 0;
         min-width: 5px;
+        max-width: 5px;
         max-height: 100%;
         border-radius: 5px;
         box-sizing: border-box;

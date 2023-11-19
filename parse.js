@@ -213,7 +213,9 @@ async function loadFile(file) {
   lines = lines.replace(/\r\n/g, "\n")
     .split(/\n/)
     .map((line) =>
-      line.replace(/^\d+-\d+ \d+:\d+:\d+.\d+\s+\d+\s+\d+ [A-Z] Unity\s+: /g, "")
+      line.replace(/^\d+-\d+-\d+T\d+:\d+:\d+\.\d+: [A-Z]+ .+  +:  /g, "")
+        .replace(/^\d+-\d+-\d+T\d+:\d+:\d+\.\d+ \d+:\d+:\d+.\d+\s+\d+\s+\d+ [A-Z] Unity\s+: /g, "")
+      // 2023-11-19T01:45:22.635 INFO UnityEngine.SetupCoroutine.InvokeMoveNext       : Load options...
     );
   setStatus("Parsing log lines")
   await parse(lines);
@@ -1652,6 +1654,9 @@ async function parse(lines) {
 
 function matchSystemInfo(line) {
   line = line.replace(/\//g, "\\");
+  match(line, /Platform \[Android\] initialized/, groups => {
+    game.system.platform = "Nomad";
+  })
   match(line, /Mono path\[0\] = '(?<path>.+)'$/, (groups) => {
     game.system.game_directory = groups.path.replace(/\\/g, "/");
   });
