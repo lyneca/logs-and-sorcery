@@ -538,7 +538,7 @@ class Game {
         icon("warning", undefined, "color-warning") + "Unknown - Pirated?";
       this.addSuggestion("pirated");
     }
-    this.baseGame = new Mod("Base Game Errors", "BaseGame");
+    this.baseGame = new Mod("Base Game Errors", "N/A");
     this.begun = true;
     this.modFinder = new Fuse(this.mods, {
       keys: ["assemblies", "name", "folder", "author"],
@@ -1012,6 +1012,7 @@ class Exception {
 
     if (this.mods.size == 0) {
       game.orphanExceptions.push(this);
+      game.baseGame.addException(this);
     }
 
     if (!this.tags.has("modded") && !this.tags.has("harmony"))
@@ -1639,6 +1640,10 @@ async function parse(lines) {
               let match = groups.location.match(/^(?<namespace>(\w|\+)+)\./);
               if (match != null) exception.mods.add(match.groups.namespace);
               exception.tags.add("modded");
+            } else {
+              let match = groups.location.match(/^(?<namespace>(\w|\+)+)\./);
+              if (match != null) exception.mods.add("Base Game Errors");
+              exception.tags.add("unmodded");
             }
           }
         );
