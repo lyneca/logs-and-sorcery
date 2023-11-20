@@ -1680,6 +1680,18 @@ function matchSystemInfo(line) {
   match(line, /Mono path\[0\] = '.+(Downloads|Desktop).*\\steamapps\\common.+/i, () => {
     game.system.platform = null;
   });
+  match(line, /Successfully loaded content catalog at path (?<path>.+)'$/, (groups) => {
+    game.system.game_directory = groups.path.replace(/\\/g, "/");
+  });
+  match(line, /Successfully loaded content catalog at path .+(Oculus)?\\Software.+/i, () => {
+    game.system.platform = "Oculus";
+  });
+  match(line, /Successfully loaded content catalog at path .+\\steamapps\\common.+/i, () => {
+    game.system.platform = "Steam";
+  });
+  match(line, /Successfully loaded content catalog at path .+(Downloads|Desktop).*\\steamapps\\common.+/i, () => {
+    game.system.platform = null;
+  });
   match(
     line,
     /\(Filename: (?<filename>.+)? Line: (?<line>\d+)?\)/,
