@@ -9,7 +9,8 @@ const PROGRESS_FINISH = 30;
 const PROGRESS_SORT = 10;
 
 const LOG_REGEX =
-  /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2}).(?<microsecond>\d+) (?<level>[A-Z]+) .+?: /;
+  /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2}).(?<microsecond>\d+) +(?<level>[A-Z]+) .+?: /;
+const XML_REGEX = /<\\*color.*?>/g;
 
 const IGNORED_ARGS = [
   "Newtonsoft.",
@@ -275,12 +276,20 @@ function expandException(elem) {
 }
 
 function clickButton(id) {
-  let callback = game.selectors[id];
+  let target = game.selectors[id].call(game);
+  let text, callback;
+  if (Array.isArray(target)) {
+    [text, callback] = target;
+  } else {
+    text = target;
+  }
   document
     .querySelectorAll("#mod-list > .mod")
     .forEach((elem) => elem.classList.remove("selected"));
   document.querySelector("#" + id).classList.add("selected");
-  document.querySelector("#mod-details").innerHTML = callback.call(game);
+  document.querySelector("#mod-details").innerHTML = text;
+  if (callback)
+    callback();
 }
 
 function objectToTable(obj, title, includeEmpty = true) {
@@ -436,10 +445,35 @@ function replaceNamespaces(namespace) {
   return COMMON_NAMESPACES[namespace] ?? namespace;
 }
 
+function loadTimings() {
+  let labels = [];
+  let data = [];
+
+  for (const [key, value] of Object.entries(game.timing)) {
+    labels.push(key);
+    data.push(value);
+  }
+
+  (async function () {
+    new Chart(document.getElementById('timing'), {
+      type: "doughnut",
+      label: "Load times",
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            data: data,
+          },
+        ],
+      },
+    });
+  })();
+}
 class Game {
   constructor() {
     this.currentCount = 0;
     this.maxCount = 0;
+    this.timing = {}
     this.mods = [];
     this.exceptions = [];
     this.timeline = [];
@@ -596,6 +630,10 @@ class Game {
         [...Object.keys(this.suggestions)].length
       )
     );
+    setStatus(`Creating timing section`);
+    containers.mods.appendChild(
+      this.selector("Load Timings", this.renderTimings)
+    );
     setStatus(`Collapsing ${this.timeline.length} timeline events`)
     await this.collapseTimeline();
     containers.mods.appendChild(
@@ -622,6 +660,8 @@ class Game {
       });
       await this.incrementProgress();
     }
+
+    console.log(game.timing);
   }
 
   async sort() {
@@ -652,6 +692,12 @@ class Game {
   addException(exception) {
     this.timeline.push(exception);
     this.exceptions.push(exception);
+  }
+
+  addTime(process, time) {
+    if (process.endsWith("Game loaded")) return;
+    this.timing[process] ??= 0;
+    this.timing[process] += time;
   }
 
   addEvent(text, description, props, color) {
@@ -715,6 +761,10 @@ class Game {
         "suggestion"
       );
     }
+  }
+
+  renderTimings() {
+    return [div(`<canvas id="timing"></canvas>`), loadTimings];
   }
 
   renderOrphanExceptions() {
@@ -1333,6 +1383,7 @@ async function parse(lines) {
   for (let line of lines) {
     line = line.replace(/\//g, "\\");
     await maybeTakeABreak();
+    line = line.replace(XML_REGEX, "");
     match(line, LOG_REGEX, (groups) => {
       metadata = groups;
       line = line.replace(LOG_REGEX, "");
@@ -1521,6 +1572,13 @@ async function parse(lines) {
             mod.namespaces.add(groups.namespace);
           }
         );
+
+        // Match load time events for pie chart
+        match(
+          line,
+          /(?<process>.+) in (?<time>[\d\.]+) sec/,
+          (groups) => game.addTime(groups.process, parseFloat(groups.time))
+        )
 
         // Match level load events
         match(
