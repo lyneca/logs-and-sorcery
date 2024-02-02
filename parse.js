@@ -214,7 +214,9 @@ async function loadFile(file) {
   lines = lines.replace(/\r\n/g, "\n")
     .split(/\n/)
     .map((line) =>
-      line.replace(/^\d+-\d+ \d+:\d+:\d+.\d+\s+\d+\s+\d+ [A-Z] Unity\s+: /g, "")
+      line.replace(/^\d+-\d+-\d+T\d+:\d+:\d+\.\d+: [A-Z]+ .+? *: /g, "")
+        .replace(/^\d+-\d+-\d+T\d+:\d+:\d+\.\d+ \d+:\d+:\d+.\d+\s+\d+\s+\d+ [A-Z] Unity\s+: /g, "")
+      // 2023-11-19T01:45:22.635 INFO UnityEngine.SetupCoroutine.InvokeMoveNext       : Load options...
     );
   setStatus("Parsing log lines")
   await parse(lines);
@@ -475,6 +477,7 @@ class Game {
     this.maxCount = 0;
     this.timing = {}
     this.mods = [];
+    this.baseGame = null;
     this.exceptions = [];
     this.timeline = [];
     this.orphanExceptions = [];
@@ -537,7 +540,7 @@ class Game {
   }
 
   findModByData(id, address) {
-    if (address.startsWith("Bas.")) return null;
+    if (address.startsWith("Bas.")) return game.baseGame;
     if (address.split(".").length >= 3) {
       let [author, mod, ...data] = address.split(".");
       if (id.split(".").length > 1) {
@@ -569,6 +572,7 @@ class Game {
         icon("warning", undefined, "color-warning") + "Unknown - Pirated?";
       this.addSuggestion("pirated");
     }
+    this.baseGame = new Mod("Base Game Errors", "N/A");
     this.begun = true;
     this.modFinder = new Fuse(this.mods, {
       keys: ["assemblies", "name", "folder", "author"],
@@ -617,6 +621,7 @@ class Game {
     }
     this.maxCount += this.orphanExceptions.length;
     setStatus(`Processing ${this.mods.length} mods`)
+    game.baseGame.complete();
     for (const mod of this.mods) {
       mod.complete()
       await this.incrementProgress();
@@ -719,6 +724,7 @@ class Game {
             this.incompatibleMods.length
           )
         : null,
+      this.baseGame?.renderList(true),
       createHR(),
     ].filter((elem) => elem != null)) {
       containers.mods.appendChild(entry);
@@ -908,12 +914,12 @@ class Mod {
     return value;
   }
 
-  renderList() {
+  renderList(bold) {
     let slug = slugify(this.folder);
     game.selectors[`mod-${slug}`] = () => this.renderDetails();
     return createDiv("mod", {id: `mod-${slug}`, onclick: () => clickButton(`mod-${slug}`)},
       createDiv("mod-headers", {}, [
-        createDiv("mod-title", {}, [this.name, ...this.renderTags()]),
+        createDiv(bold ? "selector-title" : "mod-title", {}, [this.name, ...this.renderTags()]),
         createDiv("mod-errors", {}, [this.loadErrorCount(), this.exceptionCount()]),
       ])
     );
@@ -1056,6 +1062,7 @@ class Exception {
 
     if (this.mods.size == 0) {
       game.orphanExceptions.push(this);
+      game.baseGame.addException(this);
     }
 
     if (!this.tags.has("modded") && !this.tags.has("harmony"))
@@ -1533,11 +1540,13 @@ async function parse(lines) {
           line,
           /Address \[(?<address>.+)\] not found for \[(?<id>.+) (\((?<type>.+)\))?\]/,
           (groups) => {
-            game.missingData.push({
+            var entry = {
               address: groups.address,
               id: groups.id,
               type: groups.type,
-            });
+            };
+            if (!game.missingData.find(element => element.address == groups.address))
+              game.missingData.push(entry);
           }
         );
 
@@ -1689,6 +1698,10 @@ async function parse(lines) {
               let match = groups.location.match(/^(?<namespace>(\w|\+)+)\./);
               if (match != null) exception.mods.add(match.groups.namespace);
               exception.tags.add("modded");
+            } else {
+              let match = groups.location.match(/^(?<namespace>(\w|\+)+)\./);
+              if (match != null) exception.mods.add("Base Game Errors");
+              exception.tags.add("unmodded");
             }
           }
         );
@@ -1710,6 +1723,9 @@ async function parse(lines) {
 
 function matchSystemInfo(line) {
   line = line.replace(/\//g, "\\");
+  match(line, /Platform \[Android\] initialized/, groups => {
+    game.system.platform = "Nomad";
+  })
   match(line, /Mono path\[0\] = '(?<path>.+)'$/, (groups) => {
     game.system.game_directory = groups.path.replace(/\\/g, "/");
   });
@@ -1720,6 +1736,18 @@ function matchSystemInfo(line) {
     game.system.platform = "Steam";
   });
   match(line, /Mono path\[0\] = '.+(Downloads|Desktop).*\\steamapps\\common.+/i, () => {
+    game.system.platform = null;
+  });
+  match(line, /Successfully loaded content catalog at path (?<path>.+)'$/, (groups) => {
+    game.system.game_directory = groups.path.replace(/\\/g, "/");
+  });
+  match(line, /Successfully loaded content catalog at path .+(Oculus)?\\Software.+/i, () => {
+    game.system.platform = "Oculus";
+  });
+  match(line, /Successfully loaded content catalog at path .+\\steamapps\\common.+/i, () => {
+    game.system.platform = "Steam";
+  });
+  match(line, /Successfully loaded content catalog at path .+(Downloads|Desktop).*\\steamapps\\common.+/i, () => {
     game.system.platform = null;
   });
   match(
