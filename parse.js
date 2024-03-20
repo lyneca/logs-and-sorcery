@@ -10,7 +10,7 @@ const PROGRESS_SORT = 10;
 
 const LOG_REGEX =
   /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2}).(?<microsecond>\d+) +(?<level>[A-Z]+) .+?: /;
-const XML_REGEX = /<\\*color.*?>/g;
+const XML_REGEX = /\r?<\\*color.*?>/g;
 
 const IGNORED_ARGS = [
   "Newtonsoft.",
