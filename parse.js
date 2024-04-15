@@ -477,6 +477,8 @@ class Game {
     this.maxCount = 0;
     this.timing = {}
     this.mods = [];
+    this.areas = [];
+    this.lastLevel = "";
     this.baseGame = null;
     this.exceptions = [];
     this.timeline = [];
@@ -644,6 +646,9 @@ class Game {
     containers.mods.appendChild(
       this.selector("Timeline", this.renderTimeline, this.timeline.length)
     );
+    containers.mods.appendChild(
+      this.selector("Areas", this.renderAreaList, this.areas.map(list => list.length - 1).reduce((acc, a) => acc + a))
+    )
     if (this.orphanExceptions.length > 0) {
       setStatus(`Collapsing ${this.orphanExceptions.length} orphan exceptions`);
       await this.collapseOrphanExceptions();
@@ -709,6 +714,29 @@ class Game {
     let event = new TimelineEvent(text, description, props, color);
     this.lastEvent = event;
     this.timeline.push(event);
+  }
+
+  addAreaTransition(exit, enter) {
+    if (this.areas.length == 0) {
+      if (exit == enter) this.areas.push([this.lastLevel, enter]);
+      else this.areas.push([this.lastLevel, exit, enter]);
+      return;
+    }
+    let lastAreaList = this.areas[this.areas.length - 1];
+    if (lastAreaList[lastAreaList.length - 1] == exit) {
+      if (exit == enter) lastAreaList.push(enter);
+      else {
+        lastAreaList.push(enter);
+      }
+    } else {
+      lastAreaList = [this.lastLevel];
+      if (exit == enter) lastAreaList.push(enter);
+      else {
+        lastAreaList.push(exit);
+        lastAreaList.push(enter);
+      }
+      this.areas.push(lastAreaList)
+    }
   }
 
   addIncompatibleMod(mod, version, minVersion) {
@@ -784,6 +812,14 @@ class Game {
   renderTimeline() {
     return div(this.timeline.map((value) => value.render()).join(""));
   }
+
+  renderAreaList() {
+    return div(this.areas.map((list) => {
+      let [title, ...rest] = list;
+      return div(div(`Loaded level ${code(title)}`, "area-title")
+        + div(rest.map(elem => div(code(elem), "area-entry")).join(""), "area-list"), "area-set");
+  }).join(""));
+}
 
   renderIncompatibleMods() {
     return wrapDetails(
@@ -1592,12 +1628,13 @@ async function parse(lines) {
         // Match level load events
         match(
           line,
-          /Load level (?<level>.+) using mode (?<mode>.+)/,
+          /Load level (?<level>.+)( using mode (?<mode>.+))?/,
           (groups) => {
             game.addEvent(`Level ${bold(groups.level)} loading...`, undefined, {
               level: groups.level,
               mode: groups.mode,
             });
+            game.lastLevel = groups.level;
           }
         );
         match(
@@ -1610,6 +1647,15 @@ async function parse(lines) {
             });
           }
         );
+
+        match(
+          line,
+          /Player Enter : (?<enter>[\w_]+) And Leave : (?<exit>[\w_]+)/,
+          (groups) => {
+            game.addEvent(`Player transitioned from area ${code(groups.exit)} to area ${code(groups.enter)}`);
+            game.addAreaTransition(groups.exit, groups.enter);
+          }
+        )
 
         // Match game load events
         match(line, /Game started in (?<time>.+) sec/, (groups) => {

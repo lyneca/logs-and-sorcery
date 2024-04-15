@@ -590,6 +590,23 @@ code.padded {
     background-color: var(--fatal);
 }
 
+.area-set {
+    padding: 5px 0;
+}
+
+.area-title {
+    font-size: 20px;
+}
+
+.area-list {
+    padding-left: 10px;
+}
+
+.area-entry::before {
+    content: "-> ";
+    font-family: "Fira Code", monospace;
+}
+
 @media screen and (max-width: 1200px) {
     html, body {
         margin: 0;
