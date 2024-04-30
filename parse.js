@@ -646,9 +646,11 @@ class Game {
     containers.mods.appendChild(
       this.selector("Timeline", this.renderTimeline, this.timeline.length)
     );
-    containers.mods.appendChild(
-      this.selector("Areas", this.renderAreaList, this.areas.map(list => list.length - 1).reduce((acc, a) => acc + a))
-    )
+    if (this.areas.length > 0) {
+      containers.mods.appendChild(
+        this.selector("Areas", this.renderAreaList, this.areas.map(list => list.length - 1).reduce((acc, a) => acc + a))
+      )
+    }
     if (this.orphanExceptions.length > 0) {
       setStatus(`Collapsing ${this.orphanExceptions.length} orphan exceptions`);
       await this.collapseOrphanExceptions();
