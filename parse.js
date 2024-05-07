@@ -1455,7 +1455,7 @@ async function parse(lines) {
 
     match(
       line,
-      /^(Exception in (ThunderScript )?Update Loop: )?(System\.)?(?<type>(\w+\.)*\w*Exception)(: (?<error>.+?))?( assembly:.+)?$/,
+      /^(Exception in (ThunderScript )?Update Loop: |.+ )?(System\.)?(?<type>(\w+\.)*\w*Exception)(: (?<error>.+?))?( assembly:.+)?$/,
       (groups) => {
         if (state == "exception") {
           // we just had an exception, time to save it
