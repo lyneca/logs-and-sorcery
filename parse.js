@@ -659,10 +659,10 @@ class Game {
         [...Object.keys(this.suggestions)].length
       )
     );
-    setStatus(`Creating timing section`);
-    containers.mods.appendChild(
-      this.selector("Load Timings", this.renderTimings)
-    );
+    // setStatus(`Creating timing section`);
+    // containers.mods.appendChild(
+    //   this.selector("Load Timings", this.renderTimings)
+    // );
     setStatus(`Collapsing ${this.timeline.length} timeline events`)
     await this.collapseTimeline();
     containers.mods.appendChild(
