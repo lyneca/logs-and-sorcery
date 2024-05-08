@@ -2,6 +2,7 @@
 
 const containers = {
   mods: document.querySelector("#mod-list"),
+  details: document.querySelector("#mod-details"),
 };
 
 const PROGRESS_READ = 50;
@@ -155,6 +156,7 @@ var lastBreak = Date.now()
 
 let takeABreak = () => new Promise((resolve) => setTimeout(resolve));
 let startTime = Date.now();
+let isClicking = false;
 
 async function maybeTakeABreak() {
   let date = Date.now();
@@ -187,15 +189,16 @@ function setStatus(text) {
   statusDiv.innerText = text + (text.endsWith('%') ? '' : "...");
 }
 
-function setProgress(amount) {
+function setProgress(amount, force = false) {
   if (amount == 0) progressBar.style.opacity = 1;
   if (amount == 100) progressBar.style.opacity = 0;
+  progressBar.style.transition = force ? "none" : "max-width 0.2s ease-in-out, opacity 0.2s ease-in-out";
   progressBar.style.maxWidth = amount + '%';
 }
 
 function cleanup() {
-  containers.mods.replaceChildren([]);
-  document.querySelector("#mod-details").innerHTML = "";
+  containers.mods.replaceChildren();
+  containers.details.replaceChildren();
 }
 
 async function loadFile(file) {
@@ -209,7 +212,7 @@ async function loadFile(file) {
     document.querySelector("h1").style.display = "none";
     document.querySelector("#file-input").style.display = "none";
   }, 200);
-  setProgress(0);
+  setProgress(0, true);
   let lines = await readFileText(file);
   lines = lines.replace(/\r\n/g, "\n")
     .split(/\n/)
@@ -220,6 +223,7 @@ async function loadFile(file) {
     );
   setStatus("Parsing log lines")
   await parse(lines);
+  startTime = Date.now();
   setStatus("Sorting mods")
   await game.sort();
   setStatus("Rendering page")
@@ -285,19 +289,32 @@ function expandException(elem) {
   }
 }
 
-function clickButton(id) {
-  let target = game.selectors[id].call(game);
+async function clickButton(id, doProgress = true) {
+  if (isClicking) return;
+  startTime = Date.now();
+  containers.details.replaceChildren();
+  isClicking = true;
+  if (doProgress)
+    setProgress(0, true)
+  await takeABreak();
+  let target = await game.selectors[id].call(game);
+  if (doProgress) {
+    hideStatus();
+    setProgress(100)
+  }
+  isClicking = false;
+  document
+    .querySelectorAll("#mod-list > .mod")
+    .forEach((elem) => elem.classList.remove("selected"));
+  document.querySelector("#" + id).classList.add("selected");
+  if (target == null) return;
   let text, callback;
   if (Array.isArray(target)) {
     [text, callback] = target;
   } else {
     text = target;
   }
-  document
-    .querySelectorAll("#mod-list > .mod")
-    .forEach((elem) => elem.classList.remove("selected"));
-  document.querySelector("#" + id).classList.add("selected");
-  document.querySelector("#mod-details").innerHTML = text;
+  containers.details.innerHTML = text;
   if (callback)
     callback();
 }
@@ -405,7 +422,12 @@ function createElement(tag, classes, args, contents) {
     }
   }
   return element;
+}
 
+function newElement(content) {
+  const parent = document.createElement("div");
+  parent.innerHTML = content;
+  return parent.firstChild;
 }
 
 function createIcon(icon, classes) {
@@ -421,7 +443,7 @@ function createDiv(classes, args, contents){
 }
 
 function div(string, className) {
-  return `<div${className ? ' class="' + className + '"' : ""}>${string}</div>`;
+  return `<div${className ? ' class="' + className + '"' : ""}>${string ?? ""}</div>`;
 }
 
 function p(string, className) {
@@ -484,6 +506,23 @@ function loadTimings() {
     });
   })();
 }
+
+async function renderListOfEvents(container, list, title) {
+    container.replaceChildren();
+    let length = list.length;
+    const parent = document.createElement("div");
+    container.appendChild(parent);
+    for (let i = 0; i < length; i++) {
+      const div = document.createElement("div");
+      console.log(list[i]);
+      div.innerHTML = list[i].render();
+      parent.appendChild(div.firstChild);
+      div.remove();
+      setProgress(i / length * 100)
+      await maybeTakeABreak();
+    }
+}
+
 class Game {
   constructor() {
     this.startMetadata = {};
@@ -631,7 +670,7 @@ class Game {
     }
     containers.mods.replaceChildren([]);
     containers.mods.appendChild(this.selector("System Info", this.renderGameInfo));
-    clickButton("selector-system-info");
+    await clickButton("selector-system-info", false);
     this.maxCount =
       this.exceptions.length +
       this.mods.length +
@@ -812,11 +851,11 @@ class Game {
     }
   }
 
-  renderGameInfo() {
+  async renderGameInfo() {
     return wrapDetails("System Info", objectToTable(this.system));
   }
 
-  renderSuggestions() {
+  async renderSuggestions() {
     return wrapDetails(
       "Suggestions",
       [
@@ -827,7 +866,7 @@ class Game {
     );
   }
 
-  renderSuggestion(suggestion, reasons) {
+  async renderSuggestion(suggestion, reasons) {
     if (suggestion.cols) {
       return div(
         heading(suggestion.title, 3) +
@@ -845,23 +884,19 @@ class Game {
     }
   }
 
-  renderTimings() {
+  async renderTimings() {
     return [div(`<canvas id="timing"></canvas>`), loadTimings];
   }
 
-  renderOrphanExceptions() {
-    return div(
-      this.orphanCollapsed
-        .map((exception) => exception.exception.render(exception.count))
-        .join("")
-    );
+  async renderOrphanExceptions() {
+    await renderListOfEvents(containers.details, this.orphanCollapsed.map(exception => exception.exception), "orphan exceptions");
   }
 
-  renderTimeline() {
-    return div(this.timeline.map((value) => value.render()).join(""));
+  async renderTimeline() {
+    await renderListOfEvents(containers.details, this.timeline, "timeline");
   }
 
-  renderAreaList() {
+  async renderAreaList() {
     return div(this.areas.map((list) => {
       let [title, seed, ...rest] = list;
       return div(div(`Loaded level ${code(title)}`, "area-title")
@@ -870,14 +905,14 @@ class Game {
     }).join(""));
   }
 
-  renderInventories() {
+  async renderInventories() {
     return div(Object.entries(this.inventories).map(([inventory, list]) => {
       return div(div(inventory, "area-title")
       + div(list.map(elem => div(code(elem.id), `inventory-entry-${elem.type}`)).join(""), "area-list"), "area-set")
     }))
   }
 
-  renderMissingDamagers() {
+  async renderMissingDamagers() {
     return wrapDetails(
       "Missing Damagers",
       objectListToTable(Object.entries(this.missingDamagers).map(([id, groups]) => {
@@ -888,7 +923,7 @@ class Game {
     );
   }
 
-  renderIncompatibleMods() {
+  async renderIncompatibleMods() {
     return wrapDetails(
       "Incompatible Mods",
       div(objectListToTable(this.incompatibleMods))
@@ -897,8 +932,8 @@ class Game {
 
   selector(name, callback, count) {
     let slug = slugify(name);
-    game.selectors[`selector-${slug}`] = () => callback.call(this);
-    return createDiv("mod", {id: `selector-${slug}`, onclick: () => clickButton(`selector-${slug}`)},
+    game.selectors[`selector-${slug}`] = async () => callback.call(this);
+    return createDiv("mod", {id: `selector-${slug}`, onclick: async () => await clickButton(`selector-${slug}`)},
       createDiv("mod-headers", {}, [
         createDiv("selector-title", {}, name),
         createDiv("mod-errors", {}, count > 0 ? createSpan("mod-error-count", {}, count) : null),
@@ -929,9 +964,9 @@ class Game {
     let lastEventHash = "";
     for (const event of this.timeline) {
       if (event.eventType == "exception") {
-        const json = JSON.stringify(event);
-        if (json != lastEventHash) {
-          lastEventHash = json;
+        const hash = event.getHash();
+        if (hash != lastEventHash) {
+          lastEventHash = hash;
           lastEvent = event;
           lastEvent.count = 1;
           collapsed.push(event);
@@ -951,7 +986,7 @@ class Game {
     let collapsed = {};
     let keys = []
     for (const exception of this.orphanExceptions) {
-      const hash = JSON.stringify(exception).hashCode();
+      const hash = exception.getHash()
       if (collapsed[hash]) {
         collapsed[hash].count++;
       } else {
@@ -1019,8 +1054,8 @@ class Mod {
 
   renderList(bold) {
     let slug = slugify(this.folder);
-    game.selectors[`mod-${slug}`] = () => this.renderDetails();
-    return createDiv("mod", {id: `mod-${slug}`, onclick: () => clickButton(`mod-${slug}`)},
+    game.selectors[`mod-${slug}`] = async () => await this.renderDetails();
+    return createDiv("mod", {id: `mod-${slug}`, onclick: async () => await clickButton(`mod-${slug}`)},
       createDiv("mod-headers", {}, [
         createDiv(bold ? "selector-title" : "mod-title", {}, [this.name, ...this.renderTags()]),
         createDiv("mod-errors", {}, [this.loadErrorCount(), this.exceptionCount()]),
@@ -1035,7 +1070,7 @@ class Mod {
   collapseExceptions() {
     let collapsed = {};
     this.exceptions.forEach((exception) => {
-      const hash = JSON.stringify(exception).hashCode();
+      const hash = exception.getHash();
       if (collapsed[hash]) {
         collapsed[hash].count++;
       } else {
@@ -1049,7 +1084,7 @@ class Mod {
     this.exceptions.push(exception);
   }
 
-  renderDetails() {
+  async renderDetails() {
     let table = objectToTable(
       {
         name: this.name,
@@ -1082,30 +1117,36 @@ class Mod {
       "Missing Data",
       "Note: Mod attribution is 'best guess' and may not be accurate."
     );
-    let exceptions =
-      this.collapsed.length > 0
-        ? heading("Exceptions") +
-          div(
-            this.collapsed
-              .map((exception) => exception.exception.render(exception.count))
-              .join("")
-          )
-        : "";
-    return [table, loadErrors, missingDLLs, missingData, exceptions]
-      .filter((elem) => elem)
-      .join(hr());
-    /* 
-        Name
-        Folder
-        Assemblies
-        Catalogs
-        Load Errors
-        Missing Data
-        Exceptions
-        Overrides
-        Json
-        Tags
-        */
+    const list = [table, loadErrors, missingDLLs, missingData]
+      .filter(elem => elem)
+      .map(div);
+
+    const parent = containers.details;
+    parent.replaceChildren();
+    for (let i = 0; i < list.length; i++) {
+      let elem = list[i];
+      if (i > 0)
+        parent.appendChild(newElement(hr()));
+      parent.appendChild(newElement(elem));
+      await maybeTakeABreak();
+    }
+
+    if (this.collapsed.length > 0) {
+      parent.appendChild(newElement(hr()));
+      parent.appendChild(newElement(heading("Exceptions")))
+      let container = newElement(div());
+      parent.appendChild(container);
+      for (let i = 0; i < this.collapsed.length; i++) {
+        const exception = this.collapsed[i];
+        const text = exception.exception.render(exception.count);
+        if (!text) continue;
+        let elem = newElement(text);
+        if (elem)
+          container.appendChild(elem)
+        setProgress(i / this.collapsed.length * 100);
+        await maybeTakeABreak();
+      }
+    }
   }
 }
 
@@ -1121,6 +1162,10 @@ class Exception {
     this.mods = new Set();
     this.count = 1;
     this.modReasons = {}
+  }
+
+  getHash() {
+    return (this.type + this.eventType + this.error + this.lines + this.extra + this.tags + this.mods + this.modReasons).toString().hashCode();
   }
 
   containsPath(path) {
@@ -1431,6 +1476,10 @@ class TimelineEvent {
     this.eventType = "timeline";
   }
 
+  getHash() {
+    return (this.text + this.color + this.description + this.props + this.eventType).toString().hashCode();
+  }
+
   render() {
     let desc = [];
     if (this.description !== undefined)
@@ -1479,7 +1528,7 @@ function setupProgressDisplay() {
 }
 
 function refreshProgress(rows) {
-  document.querySelector("#mod-details").innerHTML = "<h2>Progress</h2>" + objectToTable(rows);
+  containers.details.innerHTML = "<h2>Progress</h2>" + objectToTable(rows);
 }
 
 async function parse(lines) {
