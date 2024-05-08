@@ -527,6 +527,7 @@ class Game {
   constructor() {
     this.startMetadata = {};
     this.metadata = undefined;
+    this.lastMetadata = undefined;
     this.currentCount = 0;
     this.maxCount = 0;
     this.timing = {}
@@ -781,8 +782,8 @@ class Game {
     this.timing[process] += time;
   }
 
-  addEvent(text, description, props, color) {
-    let event = new TimelineEvent(text, description, props, color, this.metadata);
+  addEvent(text, description, props, color, metadata) {
+    let event = new TimelineEvent(text, description, props, color, metadata ?? this.metadata);
     this.lastEvent = event;
     this.timeline.push(event);
     return event;
@@ -827,6 +828,10 @@ class Game {
     game.missingDamagers[item].add(group)
   }
 
+  addSkillList(list) {
+    game.addEvent("Loaded player skills", undefined, list, "color-skills", this.lastMetadata);
+  }
+
   addIncompatibleMod(mod, version, minVersion) {
     this.incompatibleMods.push({ mod, version, min_version: minVersion });
   }
@@ -866,7 +871,7 @@ class Game {
     );
   }
 
-  async renderSuggestion(suggestion, reasons) {
+  renderSuggestion(suggestion, reasons) {
     if (suggestion.cols) {
       return div(
         heading(suggestion.title, 3) +
@@ -1467,10 +1472,10 @@ class ExceptionLine {
 }
 
 class TimelineEvent {
-  constructor(text, description, props, color) {
+  constructor(text, description, props, color, metadata) {
     this.color = color ?? "color-success";
     this.text = text;
-    this.metadata = game.metadata;
+    this.metadata = metadata;
     this.description = description;
     this.props = props ?? {};
     this.eventType = "timeline";
@@ -1485,6 +1490,13 @@ class TimelineEvent {
     if (this.description !== undefined)
       desc.push(`<div>${this.description}</div>`);
     if (this.props !== undefined)
+      if (Array.isArray(this.props)) {
+        desc.push("<div class='event-tag-list'>");
+        this.props.forEach(elem => {
+          desc.push(span(elem, "code event-tag"))
+        });
+        desc.push("</div>");
+      } else {
       Object.keys(this.props).forEach((key) => {
         if (this.props[key] !== undefined)
           desc.push(
@@ -1495,6 +1507,7 @@ class TimelineEvent {
             )}</span></div>`
           );
       });
+      }
     return `<div class="global event ${this.color ?? ""}">
               <div class="event-container">
                     <div class="event-title">${span(this.text)}${this.metadata ? span(getTimestamp(this.metadata), "event-time") : ""}</div>
@@ -1536,6 +1549,7 @@ async function parse(lines) {
   game = new Game();
   let exception = null;
   let prev = "";
+  let skills = [];
 
   let rows = setupProgressDisplay();
 
@@ -1550,6 +1564,7 @@ async function parse(lines) {
       if (game.metadata === undefined) {
         game.startMetadata = groups;
       }
+      game.lastMetadata = game.metadata;
       game.metadata = groups;
       line = line.replace(LOG_REGEX, "");
     });
@@ -1596,6 +1611,16 @@ async function parse(lines) {
     });
 
     switch (state) {
+      case "skills":
+        if (
+          !match(line, /^ - (?<id>.+)/, (groups) => {
+            skills.push(groups.id);
+          })
+        ) {
+          game.addSkillList(skills);
+          state = "default";
+        }
+        break;
       case "default":
         matchSystemInfo(line);
 
@@ -1609,7 +1634,6 @@ async function parse(lines) {
         );
         // Match mod assembly
         // [ModManager][Assembly] - Loading assembly: Wand/WandModule.dll
-
 
         match(
           line,
@@ -1703,7 +1727,11 @@ async function parse(lines) {
               id: groups.id,
               type: groups.type,
             };
-            if (!game.missingData.find(element => element.address == groups.address))
+            if (
+              !game.missingData.find(
+                (element) => element.address == groups.address
+              )
+            )
               game.missingData.push(entry);
           }
         );
@@ -1741,11 +1769,9 @@ async function parse(lines) {
         );
 
         // Match load time events for pie chart
-        match(
-          line,
-          /(?<process>.+) in (?<time>[\d\.]+) sec/,
-          (groups) => game.addTime(groups.process, parseFloat(groups.time))
-        )
+        match(line, /(?<process>.+) in (?<time>[\d\.]+) sec/, (groups) =>
+          game.addTime(groups.process, parseFloat(groups.time))
+        );
 
         // Match level load events
         match(
@@ -1759,52 +1785,59 @@ async function parse(lines) {
             game.lastLevel = groups.level;
           }
         );
-        match(
-          line,
-          /^Option: (?<name>.+): (?<value>.+)/,
-          (groups) => {
-            game.lastEvent.props[groups.name] = renderValue(groups.value);
+        match(line, /^Option: (?<name>.+): (?<value>.+)/, (groups) => {
+          game.lastEvent.props[groups.name] = renderValue(groups.value);
+        });
+        match(line, /^Module: (?<name>.+)/, (groups) => {
+          if (game.lastEvent.props.modules === undefined) {
+            game.lastEvent.props.modules = code(groups.name);
+          } else {
+            game.lastEvent.props.modules += "<br>" + code(groups.name);
           }
-        );
-        match(
-          line,
-          /^Module: (?<name>.+)/,
-          (groups) => {
-            if (game.lastEvent.props.modules === undefined) {
-              game.lastEvent.props.modules = code(groups.name);
-            } else {
-              game.lastEvent.props.modules += "<br>" + code(groups.name);
-            }
-          }
-        );
+        });
         match(
           line,
           /^Dungeon generation success with (?<retries>\d+) area retry. Used seed:(?<seed>-?\d+)/,
           (groups) => {
             game.lastSeed = groups.seed;
             game.lastEvent.props["Seed"] = renderValue(groups.seed);
-            game.lastEvent.props["Generation Retries"] = renderValue(groups.retries);
+            game.lastEvent.props["Generation Retries"] = renderValue(
+              groups.retries
+            );
           }
         );
         match(
           line,
           /Total time to load (?<level>.+): (?<time>.+) sec/,
           (groups) => {
-            game.addEvent(`Level ${bold(groups.level)} finished loading.`, undefined, {
-              level: groups.level,
-              load_time: `${groups.time}s`,
-            });
+            game.addEvent(
+              `Level ${bold(groups.level)} finished loading.`,
+              undefined,
+              {
+                level: groups.level,
+                load_time: `${groups.time}s`,
+              }
+            );
           }
         );
+
+        match(line, /Loaded player skills:/, (_) => {
+          state = "skills";
+          skills = [];
+        });
 
         match(
           line,
           /Player Enter : (?<enter>.+) And Leave : (?<exit>.+)/,
           (groups) => {
-            game.addEvent(`Player transitioned from area ${code(groups.exit)} to area ${code(groups.enter)}`);
+            game.addEvent(
+              `Player transitioned from area ${code(
+                groups.exit
+              )} to area ${code(groups.enter)}`
+            );
             game.addAreaTransition(groups.exit, groups.enter);
           }
-        )
+        );
 
         // Match missing damagers
         match(
@@ -1813,7 +1846,7 @@ async function parse(lines) {
           (groups) => {
             game.addMissingDamager(groups.item, groups.group, groups.collider);
           }
-        )
+        );
 
         // Match game load events
         match(line, /Game started in (?<time>.+) sec/, (groups) => {
@@ -1830,10 +1863,11 @@ async function parse(lines) {
         });
 
         // Match inventory events
-        match(line, 
+        match(
+          line,
           /Item (?<id>.+) (?<action>added|removed) (to players container|from player inventory) (?<inventory>.+)/,
           (groups) => {
-            let text = ""
+            let text = "";
             if (groups.action == "added") {
               text = "Added item to inventory";
               game.addInventoryItem(groups.id, groups.inventory);
@@ -1842,12 +1876,17 @@ async function parse(lines) {
               game.removeInventoryItem(groups.id, groups.inventory);
             }
             if (text == "") return;
-            game.addEvent(text, undefined, {
-              item: code(groups.id),
-              inventory: code(groups.inventory)
-            }, "color-inventory")
+            game.addEvent(
+              text,
+              undefined,
+              {
+                item: code(groups.id),
+                inventory: code(groups.inventory),
+              },
+              "color-inventory"
+            );
           }
-        )
+        );
 
         // Match hard crash
         match(line, /Crash!!!/, () => {

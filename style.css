@@ -485,6 +485,12 @@ span.prefix {
 
 .align-right {
     text-align: right;
+    justify-content: right;
+}
+
+.align-left {
+    text-align: left;
+    justify-content: left;
 }
 
 .fade  {
@@ -509,6 +515,19 @@ span.prefix {
 
 .event-details {
     margin-top: 10px;
+}
+
+.event-tag-list {
+    display: flex;
+    flex-flow: row wrap;
+}
+
+.event-tag {
+    background-color: rgba(0, 0, 0, 0.2);
+    padding: 5px;
+    margin: 2px;
+    border-radius: 5px;
+    display: inline-block;
 }
 
 .count {
@@ -623,6 +642,10 @@ code.padded {
     background-color: var(--neutral_blue);
 }
 
+.color-skills {
+    background-color: var(--neutral_aqua);
+}
+
 .color-text-info { color: var(--neutral_blue)}
 .color-text-warn { color: var(--warning)}
 .color-text-error { color: var(--neutral_red)}
@@ -675,7 +698,7 @@ code.padded {
         max-width: 100%;
     }
     .exception .event-title {
-    	word-break: break-word;
+        word-break: break-word;
     }
     #events {
         width: 90%;
