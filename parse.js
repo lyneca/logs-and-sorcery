@@ -9,7 +9,7 @@ const PROGRESS_FINISH = 30;
 const PROGRESS_SORT = 10;
 
 const LOG_REGEX =
-  /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2}).(?<microsecond>\d+) +(?<level>[A-Z]+) .+?: /;
+  /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2}).(?<ms>\d+) +(?<level>[A-Z]+) .+?: /;
 const XML_REGEX = /\r?<\\*color.*?>/g;
 
 const IGNORED_ARGS = [
@@ -229,6 +229,12 @@ async function loadFile(file) {
   setProgress(100);
 }
 
+function getTimestamp(metadata) {
+  if (metadata.year === undefined) return null;
+  let {year, month, day, hour, minute, second, ms, level} = metadata;
+  return code(`${year}-${month}-${day} ${hour}:${minute}${second}.${ms} ${span(level, "color-text-" + level.toLowerCase())}`, "dim")
+}
+
 function niceify(string) {
   return string
     .replace(/_/g, " ")
@@ -254,6 +260,8 @@ function renderValue(value) {
     case "function":
       return renderValue(value());
     case "string":
+      if (!isNaN(parseFloat(value)))
+        return code(value);
       return value.match(/^[A-Z]:[\/\\]/) ||
         (!value.match(/ /) && value.match(/\./))
         ? code(value)
@@ -314,7 +322,7 @@ function objectListToTable(list, keys, title, note) {
   keys ??= list.length > 0 ? [...Object.keys(list[0])] : [];
   return (
     (title ? heading(title) : "") +
-    (note ? `<span class="dim italic">${note}</span>` : "") +
+    (note ? `<p class="dim italic">${note}</p>` : "") +
     '<table class="auto-table">' +
     `<tr>${keys.map((key) => `<th>${niceify(key)}</th>`).join("")}</tr>` +
     list
@@ -355,9 +363,9 @@ function screenshot(event, element, title) {
   });
 }
 
-function code(string) {
+function code(string, className) {
   if (string.startsWith("<code>")) return string;
-  return `<code>${string}</code>`;
+  return `<code${className ? ' class="' + className + '"' : ""}>${string}</code>`;
 }
 
 function italic(string) {
@@ -416,6 +424,10 @@ function div(string, className) {
   return `<div${className ? ' class="' + className + '"' : ""}>${string}</div>`;
 }
 
+function p(string, className) {
+  return `<p${className ? ' class="' + className + '"' : ""}>${string}</p>`;
+}
+
 function span(string, className, params) {
   return `<span${
     className ? ' class="' + className + '"' : ""
@@ -436,9 +448,10 @@ function ul(elements) {
   return `<ul>${elements.map(li).join("")}</ul>`;
 }
 
-function wrapDetails(title, contents) {
+function wrapDetails(title, contents, description) {
   return `<div class="pad">
   ${heading(title)}
+  ${description ? p(description) : ""}
   ${contents}
   </div>`;
 }
@@ -473,11 +486,15 @@ function loadTimings() {
 }
 class Game {
   constructor() {
+    this.startMetadata = {};
+    this.metadata = undefined;
     this.currentCount = 0;
     this.maxCount = 0;
     this.timing = {}
     this.mods = [];
     this.areas = [];
+    this.missingDamagers = {};
+    this.inventories = {};
     this.lastLevel = "";
     this.baseGame = null;
     this.exceptions = [];
@@ -490,6 +507,7 @@ class Game {
     this.incompatibleMods = [];
     this.begun = false;
     this.lastEvent = null;
+    this.lastSeed = 0;
   }
 
   findOrCreateMod(name, folder) {
@@ -606,7 +624,11 @@ class Game {
   }
 
   async finish() {
-    game.system.installed_mods = this.mods.length;
+    this.system.installed_mods = this.mods.length;
+    if (this.startMetadata) {
+      let {year, month, day, hour, minute, second, ms, level} = this.startMetadata;
+      this.system.start_time = new Date(year, month, day, hour, minute, second, ms).toString();
+    }
     containers.mods.replaceChildren([]);
     containers.mods.appendChild(this.selector("System Info", this.renderGameInfo));
     clickButton("selector-system-info");
@@ -651,6 +673,16 @@ class Game {
         this.selector("Areas", this.renderAreaList, this.areas.map(list => list.length - 1).reduce((acc, a) => acc + a))
       )
     }
+    if (Object.keys(this.inventories).length > 0) {
+      containers.mods.appendChild(
+        this.selector("Inventories", this.renderInventories, Object.values(this.inventories).map(list => list.length).reduce((acc, a) => acc + a))
+      )
+    }
+    if (Object.keys(this.missingDamagers).length > 0) {
+      containers.mods.appendChild(
+        this.selector("Missing Damagers", this.renderMissingDamagers, Object.values(this.missingDamagers).reduce((acc, group) => acc + Array.from(group).length, 0))
+      )
+    }
     if (this.orphanExceptions.length > 0) {
       setStatus(`Collapsing ${this.orphanExceptions.length} orphan exceptions`);
       await this.collapseOrphanExceptions();
@@ -672,8 +704,6 @@ class Game {
       });
       await this.incrementProgress();
     }
-
-    console.log(game.timing);
   }
 
   async sort() {
@@ -713,15 +743,16 @@ class Game {
   }
 
   addEvent(text, description, props, color) {
-    let event = new TimelineEvent(text, description, props, color);
+    let event = new TimelineEvent(text, description, props, color, this.metadata);
     this.lastEvent = event;
     this.timeline.push(event);
+    return event;
   }
 
   addAreaTransition(exit, enter) {
     if (this.areas.length == 0) {
-      if (exit == enter) this.areas.push([this.lastLevel, enter]);
-      else this.areas.push([this.lastLevel, exit, enter]);
+      if (exit == enter) this.areas.push([this.lastLevel, this.lastSeed, enter]);
+      else this.areas.push([this.lastLevel, this.lastSeed, exit, enter]);
       return;
     }
     let lastAreaList = this.areas[this.areas.length - 1];
@@ -731,7 +762,7 @@ class Game {
         lastAreaList.push(enter);
       }
     } else {
-      lastAreaList = [this.lastLevel];
+      lastAreaList = [this.lastLevel, this.lastSeed];
       if (exit == enter) lastAreaList.push(enter);
       else {
         lastAreaList.push(exit);
@@ -739,6 +770,22 @@ class Game {
       }
       this.areas.push(lastAreaList)
     }
+  }
+
+  addInventoryItem(id, container) {
+    this.inventories[container] ??= [];
+    this.inventories[container].push({ type: "add", id })
+  }
+
+  removeInventoryItem(id, container) {
+    this.inventories[container] ??= [];
+    this.inventories[container].push({ type: "remove", id })
+  }
+
+  addMissingDamager(item, group, collider) {
+    item = item.replace(/ *\(Clone\)/, "");
+    game.missingDamagers[item] ??= new Set();
+    game.missingDamagers[item].add(group)
   }
 
   addIncompatibleMod(mod, version, minVersion) {
@@ -777,7 +824,6 @@ class Game {
           this.renderSuggestion(SUGGESTIONS[tag], reasons)
         ),
       ].join(hr()),
-      "pad"
     );
   }
 
@@ -817,11 +863,30 @@ class Game {
 
   renderAreaList() {
     return div(this.areas.map((list) => {
-      let [title, ...rest] = list;
+      let [title, seed, ...rest] = list;
       return div(div(`Loaded level ${code(title)}`, "area-title")
+        + code(`Seed: ${seed}`)
         + div(rest.map(elem => div(code(elem), "area-entry")).join(""), "area-list"), "area-set");
-  }).join(""));
-}
+    }).join(""));
+  }
+
+  renderInventories() {
+    return div(Object.entries(this.inventories).map(([inventory, list]) => {
+      return div(div(inventory, "area-title")
+      + div(list.map(elem => div(code(elem.id), `inventory-entry-${elem.type}`)).join(""), "area-list"), "area-set")
+    }))
+  }
+
+  renderMissingDamagers() {
+    return wrapDetails(
+      "Missing Damagers",
+      objectListToTable(Object.entries(this.missingDamagers).map(([id, groups]) => {
+        groups = Array.from(groups);
+        return groups.map(group => { return { id: code(id), group: code(group) } })
+      }).reduce((acc, x) => [...acc, ...x], [])),
+      "The game attempted to damage a creature with the ColliderGroups below, but was unable to find a damager for them."
+    );
+  }
 
   renderIncompatibleMods() {
     return wrapDetails(
@@ -1047,6 +1112,7 @@ class Mod {
 class Exception {
   constructor(type, error) {
     this.type = type;
+    this.metadata = game.metadata;
     this.eventType = "exception";
     this.error = error;
     this.lines = [];
@@ -1146,6 +1212,7 @@ class Exception {
     return `<div class="exception event" onclick="expandException(this)">
                     <div class="event-container">
                     <span class="tags">
+                    ${this.metadata ? `<div class="event-time">${getTimestamp(this.metadata)}</div>` : ""}
                     ${
                       EXCEPTIONS[this.type]
                         ? `<i class="tag icofont-question"><p>${
@@ -1358,6 +1425,7 @@ class TimelineEvent {
   constructor(text, description, props, color) {
     this.color = color ?? "color-success";
     this.text = text;
+    this.metadata = game.metadata;
     this.description = description;
     this.props = props ?? {};
     this.eventType = "timeline";
@@ -1369,17 +1437,18 @@ class TimelineEvent {
       desc.push(`<div>${this.description}</div>`);
     if (this.props !== undefined)
       Object.keys(this.props).forEach((key) => {
-        desc.push(
-          `<div class="split" style="max-width: 30%;"><span class="dim">${niceify(
-            key
-          )}</span><span class="select">${renderValue(
-            this.props[key]
-          )}</span></div>`
-        );
+        if (this.props[key] !== undefined)
+          desc.push(
+            `<div class="split event-prop thin"><span class="dim">${niceify(
+              key
+            )}</span><span class="select align-right">${renderValue(
+              this.props[key]
+            )}</span></div>`
+          );
       });
     return `<div class="global event ${this.color ?? ""}">
               <div class="event-container">
-                    <div class="event-title">${this.text}</div>
+                    <div class="event-title">${span(this.text)}${this.metadata ? span(getTimestamp(this.metadata), "event-time") : ""}</div>
                     ${
                       desc.length > 0
                         ? `<div class="event-details">${desc.join("")}</div>`
@@ -1418,7 +1487,6 @@ async function parse(lines) {
   game = new Game();
   let exception = null;
   let prev = "";
-  let metadata = {};
 
   let rows = setupProgressDisplay();
 
@@ -1430,7 +1498,10 @@ async function parse(lines) {
     await maybeTakeABreak();
     line = line.replace(XML_REGEX, "");
     match(line, LOG_REGEX, (groups) => {
-      metadata = groups;
+      if (game.metadata === undefined) {
+        game.startMetadata = groups;
+      }
+      game.metadata = groups;
       line = line.replace(LOG_REGEX, "");
     });
 
@@ -1630,13 +1701,40 @@ async function parse(lines) {
         // Match level load events
         match(
           line,
-          /Load level (?<level>.+)( using mode (?<mode>.+))?/,
+          /Load level (?<level>.+?)( using mode (?<mode>.+))?$/,
           (groups) => {
             game.addEvent(`Level ${bold(groups.level)} loading...`, undefined, {
               level: groups.level,
               mode: groups.mode,
             });
             game.lastLevel = groups.level;
+          }
+        );
+        match(
+          line,
+          /^Option: (?<name>.+): (?<value>.+)/,
+          (groups) => {
+            game.lastEvent.props[groups.name] = renderValue(groups.value);
+          }
+        );
+        match(
+          line,
+          /^Module: (?<name>.+)/,
+          (groups) => {
+            if (game.lastEvent.props.modules === undefined) {
+              game.lastEvent.props.modules = code(groups.name);
+            } else {
+              game.lastEvent.props.modules += "<br>" + code(groups.name);
+            }
+          }
+        );
+        match(
+          line,
+          /^Dungeon generation success with (?<retries>\d+) area retry. Used seed:(?<seed>\d+)/,
+          (groups) => {
+            game.lastSeed = groups.seed;
+            game.lastEvent.props["Seed"] = renderValue(groups.seed);
+            game.lastEvent.props["Generation Retries"] = renderValue(groups.retries);
           }
         );
         match(
@@ -1652,10 +1750,19 @@ async function parse(lines) {
 
         match(
           line,
-          /Player Enter : (?<enter>[\w_]+) And Leave : (?<exit>[\w_]+)/,
+          /Player Enter : (?<enter>.+) And Leave : (?<exit>.+)/,
           (groups) => {
             game.addEvent(`Player transitioned from area ${code(groups.exit)} to area ${code(groups.enter)}`);
             game.addAreaTransition(groups.exit, groups.enter);
+          }
+        )
+
+        // Match missing damagers
+        match(
+          line,
+          /Tried to damage with ColliderGroup \[(?<item>.+?) \(ThunderRoad.Item\)\\(?<group>.+?) \(ThunderRoad.ColliderGroup\)\\(?<collider>.+?) \(UnityEngine.+?Collider\)\] but no damagers were found!/,
+          (groups) => {
+            game.addMissingDamager(groups.item, groups.group, groups.collider);
           }
         )
 
@@ -1672,6 +1779,26 @@ async function parse(lines) {
             creature: groups.creature,
           });
         });
+
+        // Match inventory events
+        match(line, 
+          /Item (?<id>.+) (?<action>added|removed) (to players container|from player inventory) (?<inventory>.+)/,
+          (groups) => {
+            let text = ""
+            if (groups.action == "added") {
+              text = "Added item to inventory";
+              game.addInventoryItem(groups.id, groups.inventory);
+            } else if (groups.action == "removed") {
+              text = "Removed item from inventory";
+              game.removeInventoryItem(groups.id, groups.inventory);
+            }
+            if (text == "") return;
+            game.addEvent(text, undefined, {
+              item: code(groups.id),
+              inventory: code(groups.inventory)
+            }, "color-inventory")
+          }
+        )
 
         // Match hard crash
         match(line, /Crash!!!/, () => {

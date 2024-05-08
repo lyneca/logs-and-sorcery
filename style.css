@@ -34,9 +34,10 @@ h2, h3 {
     position: relative;
 }
 
-#mod-details h2 {
+#mod-details h2, #mod-details p {
     margin: 10px;
 }
+
 
 .screenshot {
     cursor: pointer !important;
@@ -189,8 +190,17 @@ pre#directory, pre.directory {
     justify-content: space-between;
 }
 
+.event-prop {
+    border-bottom: 1px dotted var(--dim);
+    padding-bottom: 3px;
+}
+
 .split:not(:first-of-type) {
     margin-top: 5px;
+}
+
+.thin {
+    max-width: 600px;
 }
 
 #exceptions {
@@ -353,8 +363,19 @@ pre#directory, pre.directory {
     margin: auto;
 }
 
+.global .event-title {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+}
+
 .exception .event-title {
     font-family: "Fira Code", monospace;
+}
+
+.event-time {
+    word-break: keep-all;
+    break-inside: avoid;
 }
 
 .event-container {
@@ -458,6 +479,10 @@ span.prefix {
     text-align: left;
 }
 
+.align-right {
+    text-align: right;
+}
+
 .fade  {
     color: var(--fade);
 }
@@ -527,7 +552,7 @@ table {
     box-sizing: border-box;
 }
 
-#mod-details > table {
+#mod-details table {
     margin: 10px;
 }
 
@@ -590,6 +615,15 @@ code.padded {
     background-color: var(--fatal);
 }
 
+.color-inventory {
+    background-color: var(--neutral_blue);
+}
+
+.color-text-info { color: var(--neutral_blue)}
+.color-text-warn { color: var(--warning)}
+.color-text-error { color: var(--neutral_red)}
+.color-text-fatal { color: var(--fatal)}
+
 .area-set {
     padding: 5px 0;
 }
@@ -604,6 +638,26 @@ code.padded {
 
 .area-entry::before {
     content: "-> ";
+    font-family: "Fira Code", monospace;
+}
+
+.inventory-entry-add {
+    color: var(--faded_green);
+}
+.inventory-entry-add::before {
+    content: "+ ";
+    font-family: "Fira Code", monospace;
+}
+.inventory-entry-remove {
+    color: var(--neutral_red);
+}
+.inventory-entry-remove::before {
+    content: "- ";
+    font-family: "Fira Code", monospace;
+}
+
+.entry::before {
+    content: "- ";
     font-family: "Fira Code", monospace;
 }
 
@@ -675,5 +729,11 @@ code.padded {
         box-sizing: border-box;
         box-shadow: inset 3px 3px 0 0 rgba(0, 0, 0, 0.1);
         background-color: rgba(0, 0, 0, 0.4);
+    }
+    .event-time {
+        display: none;
+    }
+    .thin {
+        max-width: 100%;
     }
 }
