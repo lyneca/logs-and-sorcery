@@ -1779,7 +1779,7 @@ async function parse(lines) {
         );
         match(
           line,
-          /^Dungeon generation success with (?<retries>\d+) area retry. Used seed:(?<seed>\d+)/,
+          /^Dungeon generation success with (?<retries>\d+) area retry. Used seed:(?<seed>-?\d+)/,
           (groups) => {
             game.lastSeed = groups.seed;
             game.lastEvent.props["Seed"] = renderValue(groups.seed);
