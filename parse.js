@@ -416,7 +416,7 @@ function createElement(tag, classes, args, contents) {
   }
   if (contents != null && contents != undefined) {
     if (Array.isArray(contents)) {
-      element.replaceChildren(...contents);
+      element.replaceChildren(...contents.filter(content => content));
     } else {
       element.replaceChildren(contents);
     }
@@ -730,6 +730,7 @@ class Game {
         this.selector(
           "Orphan Exceptions",
           this.renderOrphanExceptions,
+          undefined,
           this.orphanExceptions.length
         )
       );
@@ -935,13 +936,23 @@ class Game {
     );
   }
 
-  selector(name, callback, count) {
+  selector(name, callback, countWarn, countError) {
     let slug = slugify(name);
     game.selectors[`selector-${slug}`] = async () => callback.call(this);
-    return createDiv("mod", {id: `selector-${slug}`, onclick: async () => await clickButton(`selector-${slug}`)},
+    return createDiv(
+      "mod",
+      {
+        id: `selector-${slug}`,
+        onclick: async () => await clickButton(`selector-${slug}`),
+      },
       createDiv("mod-headers", {}, [
         createDiv("selector-title", {}, name),
-        createDiv("mod-errors", {}, count > 0 ? createSpan("mod-error-count", {}, count) : null),
+        createDiv("mod-errors", {}, [
+          countWarn > 0 ? createSpan("mod-error-count", {}, countWarn) : null,
+          countError > 0
+            ? createSpan("mod-exception-count", {}, countError)
+            : null,
+        ]),
       ])
     );
   }
@@ -1215,7 +1226,6 @@ class Exception {
     this.mods = foundMods;
 
     if (this.mods.size == 0) {
-      game.orphanExceptions.push(this);
       game.baseGame.addException(this);
     }
 
@@ -1303,6 +1313,7 @@ class Exception {
                         ? '<span class="dim"></span>'
                         : ""
                     }
+                    ${this.lines.length > 0 ? `<span class="exception-preview">${this.lines[0].renderPreview()}</span>` : ""}
                     ${
                       this.error
                         ? `<span class="exception-title">${this.error}</span>`
@@ -1416,6 +1427,30 @@ class ExceptionLine {
     return this.location;
   }
 
+  getShortPath() {
+    const funcSig = this.location.match(/(?<func>.+?) ?\((?<args>.+)?\)/);
+    if (funcSig) {
+      let funcPart = [
+        ...funcSig.groups.func.matchAll(/(\w+(<.+?>)?)(?:[^:. ()]+)?/g),
+      ]
+        .map((x) =>
+          x[1].replace(
+            /<(.+)>/,
+            (_, type) =>
+              ` <span class="dim">&lt;${type.split(".").pop()}&gt;</span>`
+          )
+        )
+        .map((x) =>
+          x == "ctor"
+            ? '<span class="italic">constructor</span>'
+            : `<span>${x}</span>`
+        );
+        funcPart = funcPart.slice(funcPart.length - 2).join(`<span class="dim"> > </span>`);
+      return `${funcPart}`;
+    }
+    return this.location;
+  }
+
   replaceArgTypes(arg) {
     return ARG_REPLACEMENTS[arg.toLowerCase()] ?? arg;
   }
@@ -1446,7 +1481,6 @@ class ExceptionLine {
   }
 
   render() {
-    let path = this.getPath();
     return (
       `<span class="dim">at </span><div class="exception-line">
                     <div class="exception-line-location" title="${
@@ -1468,6 +1502,10 @@ class ExceptionLine {
           } more from <span class="code normal">${this.getNamespace()}</span></span>`
         : "")
     );
+  }
+
+  renderPreview() {
+      return `<span><span class="dim code indent"> @ </span><span class="exception-line-location fade" title="${this.address}">${this.getShortPath()}</span></span>`;
   }
 }
 

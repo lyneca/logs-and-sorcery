@@ -132,7 +132,6 @@ li {
 }
 
 .selector-title {
-    font-weight: bold;
 }
 
 .summary-icon {
@@ -145,6 +144,10 @@ li {
 
 .pad {
     margin: 5px;
+}
+
+.indent {
+    margin-left: 5px;
 }
 
 #status {
@@ -304,14 +307,14 @@ pre#directory, pre.directory {
     padding: 5px;
     margin-left: 5px;
     color: var(--bright_yellow);
-    font-weight: bold;
+    /* font-weight: bold; */
 }
 
 .mod-exception-count {
     padding: 5px;
     margin-left: 5px;
     color: var(--bright_red);
-    font-weight: bold;
+    /* font-weight: bold; */
 }
 
 .normal {
@@ -396,7 +399,7 @@ pre#directory, pre.directory {
     margin: 5px 0;
     padding-top: 5px;
     display: block;
-    font-style: italic;
+    /* font-style: italic; */
 }
 
 .label-div {
