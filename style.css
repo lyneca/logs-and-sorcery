@@ -49,9 +49,8 @@ h2, h3 {
 }
 
 .help {
-    max-height: 180px;
     transition: max-height 0.5s ease-in-out, opacity 0.2s ease-in-out;
-    margin-bottom: 20px;
+    max-height: 220px;
 }
 
 .help p {
