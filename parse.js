@@ -315,16 +315,16 @@ async function clickButton(id, doProgress = true) {
   if (doProgress)
     setProgress(0, true)
   await takeABreak();
+  document
+    .querySelectorAll("#mod-list > .mod")
+    .forEach((elem) => elem.classList.remove("selected"));
+  document.querySelector("#" + id).classList.add("selected");
   let target = await game.selectors[id].call(game);
   if (doProgress) {
     hideStatus();
     setProgress(100)
   }
   isClicking = false;
-  document
-    .querySelectorAll("#mod-list > .mod")
-    .forEach((elem) => elem.classList.remove("selected"));
-  document.querySelector("#" + id).classList.add("selected");
   if (target == null) return;
   let text, callback;
   if (Array.isArray(target)) {
@@ -376,6 +376,44 @@ function heading(text, level = 2) {
   return `<h${level}>${text}</h${level}>`;
 }
 
+function searchBar(container) {
+  let parent = createElement("span", "search-container");
+  let search = createElement("input", "search", {
+    type: "text",
+    placeholder: "search...",
+    oninput: (evt) => updateSearch(container, evt.target.value),
+  });
+  parent.appendChild(search);
+  search.focus();
+  return parent;
+}
+
+let currentQuery = "";
+
+async function updateSearch(container, search) {
+  currentQuery = search;
+  let queries = search.toLowerCase().split(" ");
+  startTime = Date.now();
+  setProgress(0, true);
+  await takeABreak();
+  const children = container.children;
+  for (let i = 0; i < children.length; i++) {
+    if (search != currentQuery) return;
+    let child = children[i];
+    if (
+      search == "" ||
+      queries.every((query) => child.dataset.keywords?.match(query))
+    ) {
+      child.classList.remove("search-hidden");
+    } else {
+      child.classList.add("search-hidden");
+    }
+    setProgress((i / children.length) * 100);
+    await maybeTakeABreak();
+  }
+  setProgress(100);
+}
+
 function screenshot(event, element, title) {
   event.preventDefault();
   event.stopPropagation();
@@ -425,12 +463,17 @@ let createHR = () => createDiv("hsep");
 
 function createElement(tag, classes, args, contents) {
   let element = document.createElement(tag);
-  for (let eachClass of classes.split(" ")) {
-    element.classList.add(eachClass);
+  if (classes) {
+    for (let eachClass of classes.split(" ")) {
+      element.classList.add(eachClass);
+    }
   }
   if (args) {
     if (args.id) element.id = args.id;
     if (args.onclick) element.onclick = args.onclick;
+    if (args.oninput) element.oninput = args.oninput;
+    if (args.type) element.setAttribute("type", args.type);
+    if (args.placeholder) element.setAttribute("placeholder", args.placeholder);
   }
   if (contents != null && contents != undefined) {
     if (Array.isArray(contents)) {
@@ -528,11 +571,13 @@ function loadTimings() {
 async function renderListOfEvents(container, list, title) {
     container.replaceChildren();
     let length = list.length;
-    const parent = document.createElement("div");
+    const heading = createElement("h2", undefined, undefined, title);
+    container.appendChild(heading);
+    const parent = createElement("div");
+    container.lastChild.appendChild(searchBar(parent));
     container.appendChild(parent);
     for (let i = 0; i < length; i++) {
       const div = document.createElement("div");
-      console.log(list[i]);
       div.innerHTML = list[i].render();
       parent.appendChild(div.firstChild);
       div.remove();
@@ -913,11 +958,11 @@ class Game {
   }
 
   async renderOrphanExceptions() {
-    await renderListOfEvents(containers.details, this.orphanCollapsed.map(exception => exception.exception), "orphan exceptions");
+    await renderListOfEvents(containers.details, this.orphanCollapsed.map(exception => exception.exception), "Orphan Exceptions");
   }
 
   async renderTimeline() {
-    await renderListOfEvents(containers.details, this.timeline, "timeline");
+    await renderListOfEvents(containers.details, this.timeline, "Timeline");
   }
 
   async renderAreaList() {
@@ -1169,6 +1214,7 @@ class Mod {
       parent.appendChild(newElement(hr()));
       parent.appendChild(newElement(heading("Exceptions")))
       let container = newElement(div());
+      parent.lastChild.appendChild(searchBar(container));
       parent.appendChild(container);
       for (let i = 0; i < this.collapsed.length; i++) {
         const exception = this.collapsed[i];
@@ -1196,6 +1242,7 @@ class Exception {
     this.mods = new Set();
     this.count = 1;
     this.modReasons = {}
+    this.keywords = [];
   }
 
   getHash() {
@@ -1283,11 +1330,29 @@ class Exception {
         this.error = "Method not found: " + span(new ExceptionLine(signature).getPath(), "code");
       });
     }
+    this.keywords = this.getKeywords();
+  }
+
+  getKeywords() {
+    let keywords;
+    if (this.lines)
+      keywords = new Set(
+        this.lines.map((line) => line.getParts()).reduce((a, b) => [...a, ...b])
+      );
+    else keywords = new Set();
+    keywords.add(this.type);
+    for (let tag of this.tags) {
+      keywords.add(tag);
+    }
+    for (let mod of this.mods) {
+      keywords.add(mod);
+    }
+    return Array.from(keywords).join(" ").toLowerCase();
   }
 
   render(count) {
     count ??= this.count;
-    return `<div class="exception event" onclick="expandException(this)">
+    return `<div class="exception event" onclick="expandException(this)" data-keywords="${this.keywords}">
                     <div class="event-container">
                     <span class="tags">
                     ${this.metadata ? `<div class="event-time">${getTimestamp(this.metadata)}</div>` : ""}
@@ -1371,6 +1436,22 @@ class ExceptionLine {
     return [...funcSig.groups.func.match(/(\w+(<.+?>)?)(?:[^:. ()]+)?/g)]
       .slice(0, 2)
       .join(".");
+  }
+
+  getParts() {
+    const funcSig = this.location.match(/(?<func>.+?) ?\((?<args>.+)?\)/);
+    if (funcSig) {
+      return [...funcSig.groups.func.matchAll(/(\w+(<.+?>)?)(?:[^:. ()]+)?/g)]
+        .map((x) =>
+          x[1].replace(
+            /<(.+)>/,
+            (_, type) =>
+              ` <span class="dim">&lt;${type.split(".").pop()}&gt;</span>`
+          )
+        )
+        .filter((x) => x != "ctor");
+    }
+    return [];
   }
 
   getPath() {
@@ -1463,7 +1544,9 @@ class ExceptionLine {
             ? '<span class="italic">constructor</span>'
             : `<span>${x}</span>`
         );
-        funcPart = funcPart.slice(funcPart.length - 2).join(`<span class="dim"> > </span>`);
+      funcPart = funcPart
+        .slice(funcPart.length - 2)
+        .join(`<span class="dim"> > </span>`);
       return `${funcPart}`;
     }
     return this.location;
@@ -1523,7 +1606,9 @@ class ExceptionLine {
   }
 
   renderPreview() {
-      return `<span><span class="dim code indent"> @ </span><span class="exception-line-location fade" title="${this.address}">${this.getShortPath()}</span></span>`;
+    return `<span><span class="dim code indent"> @ </span><span class="exception-line-location fade" title="${
+      this.address
+    }">${this.getShortPath()}</span></span>`;
   }
 }
 
@@ -1535,6 +1620,17 @@ class TimelineEvent {
     this.description = description;
     this.props = props ?? {};
     this.eventType = "timeline";
+    this.keywords = this.getKeywords();
+  }
+
+  getKeywords() {
+    let keywords = new Set(this.text.toLowerCase().split(" "));
+    keywords.add(this.eventType);
+    if (this.description) {
+      for (let word of this.description.toLowerCase().split(" "))
+        keywords.add(word);
+    }
+    return Array.from(keywords).join(" ").toLowerCase();
   }
 
   getHash() {
@@ -1564,7 +1660,7 @@ class TimelineEvent {
           );
       });
       }
-    return `<div class="global event ${this.color ?? ""}">
+    return `<div class="global event ${this.color ?? ""}" data-keywords="${this.keywords}">
               <div class="event-container">
                     <div class="event-title">${span(this.text)}${this.metadata ? span(getTimestamp(this.metadata), "event-time") : ""}</div>
                     ${

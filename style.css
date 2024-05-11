@@ -173,6 +173,30 @@ li {
     transition: max-width 0.2s ease-in-out, opacity 0.2s ease-in-out;
 }
 
+input[type=text] {
+    background-color: transparent;
+    padding: 5px;
+    outline: none;
+    border: 2px solid var(--layer2);
+    border-radius: 5px;
+    color: var(--fg);
+    font-family: "Fira Code", monospace;
+    transition: opacity 0.2s ease-in-out;
+    opacity: 0.7;
+}
+
+input[type=text]:hover, 
+input[type=text]:active,
+input[type=text]:focus {
+    opacity: 1;
+}
+
+input.search {
+    float: right;
+    height: 100%;
+    box-sizing: border-box;
+}
+
 pre#directory, pre.directory {
     padding: 10px 10px;
     font-size: 15px;
@@ -512,6 +536,10 @@ span.prefix {
 }
 
 .event-hidden {
+    display: none;
+}
+
+.search-hidden {
     display: none;
 }
 
