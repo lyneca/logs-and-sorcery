@@ -372,8 +372,8 @@ function objectListToTable(list, keys, title, note) {
   );
 }
 
-function heading(text, level = 2) {
-  return `<h${level}>${text}</h${level}>`;
+function heading(text, level = 2, className = undefined) {
+  return `<h${level}${className ? ' class="' + className + '"' : ""}>${text}</h${level}>`;
 }
 
 function searchBar(container) {
@@ -571,7 +571,7 @@ function loadTimings() {
 async function renderListOfEvents(container, list, title) {
     container.replaceChildren();
     let length = list.length;
-    const heading = createElement("h2", undefined, undefined, title);
+    const heading = createElement("h2", "search-title", undefined, title);
     container.appendChild(heading);
     const parent = createElement("div");
     container.lastChild.appendChild(searchBar(parent));
@@ -1212,7 +1212,7 @@ class Mod {
 
     if (this.collapsed.length > 0) {
       parent.appendChild(newElement(hr()));
-      parent.appendChild(newElement(heading("Exceptions")))
+      parent.appendChild(newElement(heading("Exceptions", 2, "search-title")))
       let container = newElement(div());
       parent.lastChild.appendChild(searchBar(container));
       parent.appendChild(container);
