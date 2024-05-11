@@ -195,17 +195,13 @@ input[type=text]:focus {
     display: flex;
     flex-direction: row;
     justify-content: space-between;
+    align-items: center;
     margin-right: 0 !important;
-}
-
-.search-container {
-    flex-grow: 0;
-    width: 50%;
 }
 
 input.search {
     height: 100%;
-    width: 100%;
+    width: 50%;
     min-width: 220px;
     box-sizing: border-box;
 }

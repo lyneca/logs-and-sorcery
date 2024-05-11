@@ -378,18 +378,13 @@ function heading(text, level = 2, className = undefined) {
 }
 
 async function searchBar(container) {
-  let parent = createElement("span", "search-container");
   let search = createElement("input", "search", {
     id: "search",
     type: "text",
     placeholder: "search...",
     oninput: (evt) => updateSearch(container, evt.target.value),
   });
-  parent.appendChild(search);
-  await takeABreak();
-  console.log(search);
-  await takeABreak();
-  return parent;
+  return search;
 }
 
 let currentQuery = "";
