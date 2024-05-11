@@ -557,7 +557,8 @@ span.prefix {
 }
 
 table.auto-table tr td:first-child {
-    width: 150px;
+    min-width: 150px;
+    max-width: 300px;
 }
 
 .table-wrapper {

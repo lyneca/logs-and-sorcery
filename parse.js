@@ -35,6 +35,24 @@ const COMMON_NAMESPACES = {
   TOR: "TheOuterRim"
 }
 
+const SYSTEM_INFO_KEYS = {
+  deviceType: "device_type",
+  graphicsDeviceName: "graphics_device_name",
+  graphicsDeviceType: "graphics_device_type",
+  graphicsDeviceVendor: "graphics_device_vendor",
+  graphicsMemorySize: "graphics_memory_size",
+  graphicsShaderLevel: "graphics_shader_level",
+  operatingSystem: "operating_system",
+  processorType: "processor_type",
+  processorCount: "processor_count",
+  processorFrequency: "processor_frequency",
+  systemMemorySize: "system_memory_size",
+  IsMobilePlatform: "is_mobile_platform",
+  supportsMultisampleAutoResolve: "supports_multisample_auto_resolve",
+  platformRequiresExplicitMsaaResolve: "platform_requires_explicit_msaa_resolve"
+}
+
+
 const SUGGESTIONS = {
   "delete-save": {
     title: "Delete your save file.",
@@ -1561,7 +1579,7 @@ class TimelineEvent {
 
 function match(line, re, callback) {
   let match = line.match(re);
-  if (match) callback(match.groups);
+  if (match && callback) callback(match.groups);
   return match != null;
 }
 
@@ -1626,6 +1644,8 @@ async function parse(lines) {
       }
     }
 
+    if (state == "system-info" && !match(line, /^\[.+?\]\s*:/)) state = "default";
+
     match(
       line,
       /^(Exception in (ThunderScript )?Update Loop: |.+ )?(System\.)?(?<type>(\w+\.)*\w*Exception)(: (?<error>.+?))?( assembly:.+)?$/,
@@ -1658,6 +1678,12 @@ async function parse(lines) {
           game.addSkillList(skills);
           state = "default";
         }
+        break;
+      case "system-info":
+        match(line, /\[(?<key>.+?)\]\s*:\s*(?<value>.+)/, (groups) => {
+          if (SYSTEM_INFO_KEYS[groups.key])
+            game.system[SYSTEM_INFO_KEYS[groups.key]] = groups.value;
+        });
         break;
       case "default":
         matchSystemInfo(line);
@@ -1858,6 +1884,10 @@ async function parse(lines) {
             );
           }
         );
+
+        match(line, /^\[system info\]\s*$/, _ => {
+          state = "system-info";
+        });
 
         match(line, /Loaded player skills:/, (_) => {
           state = "skills";
