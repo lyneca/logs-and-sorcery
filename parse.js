@@ -325,6 +325,7 @@ async function clickButton(id, doProgress = true) {
     setProgress(100)
   }
   isClicking = false;
+  document.getElementById("search")?.focus();
   if (target == null) return;
   let text, callback;
   if (Array.isArray(target)) {
@@ -376,15 +377,18 @@ function heading(text, level = 2, className = undefined) {
   return `<h${level}${className ? ' class="' + className + '"' : ""}>${text}</h${level}>`;
 }
 
-function searchBar(container) {
+async function searchBar(container) {
   let parent = createElement("span", "search-container");
   let search = createElement("input", "search", {
+    id: "search",
     type: "text",
     placeholder: "search...",
     oninput: (evt) => updateSearch(container, evt.target.value),
   });
   parent.appendChild(search);
-  search.focus();
+  await takeABreak();
+  console.log(search);
+  await takeABreak();
   return parent;
 }
 
@@ -574,7 +578,7 @@ async function renderListOfEvents(container, list, title) {
     const heading = createElement("h2", "search-title", undefined, title);
     container.appendChild(heading);
     const parent = createElement("div");
-    container.lastChild.appendChild(searchBar(parent));
+    container.lastChild.appendChild(await searchBar(parent));
     container.appendChild(parent);
     for (let i = 0; i < length; i++) {
       const div = document.createElement("div");
@@ -1214,7 +1218,7 @@ class Mod {
       parent.appendChild(newElement(hr()));
       parent.appendChild(newElement(heading("Exceptions", 2, "search-title")))
       let container = newElement(div());
-      parent.lastChild.appendChild(searchBar(container));
+      parent.lastChild.appendChild(await searchBar(container));
       parent.appendChild(container);
       for (let i = 0; i < this.collapsed.length; i++) {
         const exception = this.collapsed[i];
