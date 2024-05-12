@@ -1149,9 +1149,12 @@ class Mod {
     let collapsed = {};
     this.exceptions.forEach((exception) => {
       const hash = exception.getHash();
+      console.log(hash);
       if (collapsed[hash]) {
+        console.log("collapsed");
         collapsed[hash].count++;
       } else {
+        console.log("uncollapsed");
         collapsed[hash] = { exception: exception, count: 1 };
       }
     });
@@ -1245,7 +1248,8 @@ class Exception {
   }
 
   getHash() {
-    return (this.type + this.eventType + this.error + this.lines + this.extra + this.tags + this.mods + this.modReasons).toString().hashCode();
+    console.log(this.type + this.eventType + this.error + this.lines.map(line => line.getHash()).join("") + this.extra);
+    return (this.type + this.eventType + this.error + this.lines.map(line => line.getHash()).join("") + this.extra).toString().hashCode();
   }
 
   containsPath(path) {
@@ -1428,6 +1432,10 @@ class ExceptionLine {
       this.filename = filename.match(/<(?<address>.+)>/).groups.address;
       this.line = -1;
     }
+  }
+
+  getHash() {
+    return (this.location + this.address + this.filename + this.line + this.extraCount + this.filename).hashCode();
   }
 
   getNamespace() {
