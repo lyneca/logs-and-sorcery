@@ -1336,7 +1336,7 @@ class Exception {
     let keywords;
     if (this.lines)
       keywords = new Set(
-        this.lines.map((line) => line.getParts()).reduce((a, b) => [...a, ...b])
+        this.lines.map((line) => line.getParts()).reduce((a, b) => [...a, ...b], [])
       );
     else keywords = new Set();
     keywords.add(this.type);
