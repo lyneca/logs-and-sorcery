@@ -171,10 +171,10 @@ fileClickInput.addEventListener("change", async (e) => {
 });
 
 var lastBreak = Date.now()
-
-let takeABreak = () => new Promise((resolve) => setTimeout(resolve));
 let startTime = Date.now();
 let isClicking = false;
+
+let takeABreak = () => new Promise((resolve) => setTimeout(resolve));
 
 async function maybeTakeABreak() {
   let date = Date.now();
@@ -654,6 +654,8 @@ class Game {
   }
 
   fuzzyFindMod(mod) {
+    if (!game.modFinder)
+      this.updateModFinder();
     let search = game.modFinder.search(mod);
     if (search.length > 0) {
       return search[0].item;
@@ -688,7 +690,16 @@ class Game {
     }
   }
 
+  updateModFinder() {
+    this.modFinder = new Fuse(this.mods, {
+      keys: ["assemblies", "name", "folder", "author"],
+      includeScore: true,
+      useExtendedSearch: true,
+    });
+  }
+
   begin() {
+    if (this.begun) return;
     if (this.system.platform === null) {
       this.system.platform =
         icon("warning", undefined, "color-warning") + "Unknown - Pirated?";
@@ -1927,6 +1938,52 @@ async function parse(lines) {
         );
 
         match(
+          prev,
+          /EffectData: (?<id>.+?)'s effectModuleMesh meshAddress is null or empty. Has it not been set\?/,
+          (groups) => {
+            let mod = game.fuzzyFindMod(groups.id);
+            mod.loadErrors.push({
+              id: groups.id,
+              type: "EffectModuleMesh"
+            })
+          }
+        );
+
+        match(
+          prev,
+          /EffectData: (?<id>.+?)'s effectModuleParticle: (?<address>.+?) has a null effectParticlePrefab. Did it not get loaded\?/,
+          (groups) => {
+            let parts = groups.address.split(".");
+            let mod;
+            if (parts.count > 2)
+              mod = game.fuzzyFindMod(parts[1])
+            if (!mod && parts.count > 1)
+              mod = game.fuzzyFindMod(parts[0])
+            if (!mod)
+              mod = game.fuzzyFindMod(groups.id);
+            mod.loadErrors.push({
+              id: groups.id,
+              address: groups.address,
+              type: "EffectModuleParticle"
+            })
+          }
+        );
+
+        match(
+          prev,
+          /EffectData: (?<id>.+?)'s effectModuleVfx does not have a valid vfxAddress or meshAddress\./,
+          (groups) => {
+            let parts = groups.address.split(".");
+            let mod = game.fuzzyFindMod(groups.id);
+            mod.loadErrors.push({
+              id: groups.id,
+              type: "EffectModuleVfx"
+            })
+          }
+        );
+
+        // Match loading thunderscripts
+        match(
           line,
           /\[ModManager\]\[ThunderScript\] - Loaded ThunderScript: (?<namespace>[^.]+)\.(?<class>.+) on mod: (?<name>.+) in assembly: (?<assembly>.+), Version=.+/,
           (groups) => {
@@ -2151,7 +2208,7 @@ async function parse(lines) {
 
   startTime = Date.now() - 5000;
 
-  if (!game.begun) game.begin();
+  game.begin();
   await game.finish();
 }
 
