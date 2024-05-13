@@ -1973,7 +1973,6 @@ async function parse(lines) {
           prev,
           /EffectData: (?<id>.+?)'s effectModuleVfx does not have a valid vfxAddress or meshAddress\./,
           (groups) => {
-            let parts = groups.address.split(".");
             let mod = game.fuzzyFindMod(groups.id);
             mod.loadErrors.push({
               id: groups.id,
