@@ -1942,7 +1942,7 @@ async function parse(lines) {
           /EffectData: (?<id>.+?)'s effectModuleMesh meshAddress is null or empty. Has it not been set\?/,
           (groups) => {
             let mod = game.fuzzyFindMod(groups.id);
-            mod.loadErrors.push({
+            mod?.loadErrors.push({
               id: groups.id,
               type: "EffectModuleMesh"
             })
@@ -1961,7 +1961,7 @@ async function parse(lines) {
               mod = game.fuzzyFindMod(parts[0])
             if (!mod)
               mod = game.fuzzyFindMod(groups.id);
-            mod.loadErrors.push({
+            mod?.loadErrors.push({
               id: groups.id,
               address: groups.address,
               type: "EffectModuleParticle"
@@ -1974,7 +1974,7 @@ async function parse(lines) {
           /EffectData: (?<id>.+?)'s effectModuleVfx does not have a valid vfxAddress or meshAddress\./,
           (groups) => {
             let mod = game.fuzzyFindMod(groups.id);
-            mod.loadErrors.push({
+            mod?.loadErrors.push({
               id: groups.id,
               type: "EffectModuleVfx"
             })
