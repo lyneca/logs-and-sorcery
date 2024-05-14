@@ -721,7 +721,9 @@ class Game {
     mod = replaceNamespaces(mod.replace(/^Spell/, ""));
     if (!game.modFinder)
       this.updateModFinder();
+    console.log(mod);
     let search = game.modFinder.search(mod);
+    console.log(search);
     if (search.length > 0) {
       return foundMod(search[0].item, search[0].score, "fuzzy");
     }
@@ -1419,7 +1421,7 @@ class Exception {
     let bestScore = 100000;
     if (!foundMod) {
       this.mods.forEach((mod) => {
-        if (mod == "Base Game") {
+        if (!this.tags.has("modded") && mod == "Base Game") {
           bestMod = game.baseGame;
           this.modReasons[bestMod.folder] = { reason: "base_game", score: 0 };
           bestScore = -1;
@@ -2128,7 +2130,7 @@ async function parse(lines) {
             else
               game?.loadErrors.push({
                 id: groups.id,
-                type: "EffectModuleVfx",
+                type: "EffectModuleMesh",
               });
           }
         );
@@ -2162,7 +2164,10 @@ async function parse(lines) {
           prev,
           /EffectData: (?<id>.+?)'s effectModuleVfx does not have a valid vfxAddress or meshAddress\./,
           (groups) => {
+            console.log(groups.id);
             let mod = game.fuzzyFindMod(groups.id).found;
+            console.log(game.mods);
+            console.log(mod);
             if (mod)
               mod.loadErrors.push({
                 id: groups.id,
