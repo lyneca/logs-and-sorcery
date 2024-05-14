@@ -66,6 +66,7 @@ const CERTAINTY = {
 const REASONS = {
   name: "Saw mod's name in log entry.",
   folder: "Saw mod folder name in log entry.",
+  catalog: "Saw mod catalog name in log entry.",
   namespace: "Matched C# namespace to a namespace associated with this mod.",
   assembly: "Matched C# namespace to mod DLL name.",
   fuzzy: "Used fuzzy text matching to guess mod. Closeness: [[score]]",
@@ -403,15 +404,15 @@ function heading(text, level = 2, className = undefined) {
 
 function modCertainty(score) {
   if (score == 0) return "certain";
-  if (score <= 0.1) return "sure";
+  if (score <= 0.15) return "sure";
   if (score <= 0.5) return "likely";
   return "unsure";
 }
 
 function modCertaintyIcon(score) {
   if (score == 0) return '<i class="indent icofont-ui-rating"></i>';
-  if (score <= 0.2) return '<i class="indent icofont-ui-check"></i>';
-  if (score <= 1) return '<i class="indent icofont-question"></i>';
+  if (score <= 0.15) return '<i class="indent icofont-check"></i>';
+  if (score <= 0.5) return '<i class="indent icofont-question"></i>';
   return '<i class="indent icofont-ui-close"></i>';
 }
 
@@ -679,6 +680,12 @@ class Game {
   findModByName(name) {
     let found = this.mods.filter((mod) => mod.name == name);
     if (found.length > 0) return foundMod(found[0], 0, "name");
+    return foundMod();
+  }
+
+  findModByCatalog(catalog) {
+    let found = this.mods.filter((mod) => mod.catalogs.filter(each => each.catalog.toLowerCase() == `catalog_${catalog.toLowerCase()}.json`).length > 0);
+    if (found.length > 0) return foundMod(found[0], 0, "catalog");
     return foundMod();
   }
 
@@ -1363,6 +1370,9 @@ class Exception {
       this.type = preType ? (preType + "." + parts[parts.length - 1]) : parts[parts.length - 1];
     }
 
+    let foundMod = false;
+    let bestMod;
+
     if (this.type == "RemoteProviderException") {
       // RemoteProviderException : Invalid path in AssetBundleProvider: 'D:/SteamLibrary/steamapps/common/Blade & Sorcery/BladeAndSorcery_Data/StreamingAssets\Mods/InvertedSpear/invertedspearofheavenformini_assets_all.bundle'.
       match(
@@ -1370,10 +1380,33 @@ class Exception {
         /(?<prefix>.+?)'.+StreamingAssets\\(?<shortFolder>Mods\\(?<folder>[^\\]+)\\(.+\\)*(?<bundle>.+\.bundle))/,
         (groups) => {
           this.error = groups.prefix + code(groups.shortFolder);
-          this.mods.add(groups.folder);
-          game.findModByFolder(groups.folder).found?.invalidPaths.push(groups.bundle);
+          let mod;
+          match(
+            groups.bundle,
+            /(?<catalog>.+?)_(assets_all|unitybuiltinshaders).bundle/,
+            (groups) => {
+              let {found, score, reason} = game.findModByCatalog(groups.catalog);
+              console.log(groups.catalog);
+              if (found) {
+                this.modReasons[found.folder] = { reason, score };
+                mod = found;
+              }
+            }
+          );
+          if (!mod) {
+            let { found, score, reason } = game.findModByFolder(groups.folder);
+            if (found) {
+              this.modReasons[found.folder] = { reason, score };
+              mod = found;
+            }
+          }
+          if (mod) {
+            bestMod = mod;
+            foundMod = true;
+          }
+          mod?.invalidPaths.push(groups.bundle);
         }
-      )
+      );
       match(
         this.error,
         /(?<prefix>.+?)'.+(?<shortFolder>StreamingAssets\\aa\\(.+\\)*(?<bundle>.+\.bundle))/,
@@ -1384,31 +1417,37 @@ class Exception {
     }
 
     let bestScore = 100000;
-    let bestMod;
-    this.mods.forEach((mod) => {
-      if (mod == "Base Game Errors") return;
-      let {found, score, reason} = game.findModByNamespace(replaceNamespaces(mod));
-      if (!found) {
-        ({found, score, reason} = game.findModByAssembly(replaceNamespaces(mod)));
-      }
-      if (!found) {
-        ({found, score, reason} = game.findModByFolder(replaceNamespaces(mod)));
-      }
-      if (!found) {
-        ({found, score, reason} = game.fuzzyFindMod(mod));
-      }
-
-      if (found) {
-        foundMods.add(found.name);
-        this.modReasons[found.folder] = { reason, score };
-        this.tags.add("modded");
-        if (score < bestScore) {
-          bestScore = score;
-          bestMod = found;
+    if (!foundMod) {
+      this.mods.forEach((mod) => {
+        if (mod == "Base Game Errors") return;
+        let { found, score, reason } = game.findModByNamespace(
+          replaceNamespaces(mod)
+        );
+        if (!found) {
+          ({ found, score, reason } = game.findModByAssembly(
+            replaceNamespaces(mod)
+          ));
         }
-      }
-    });
+        if (!found) {
+          ({ found, score, reason } = game.findModByFolder(
+            replaceNamespaces(mod)
+          ));
+        }
+        if (!found) {
+          ({ found, score, reason } = game.fuzzyFindMod(mod));
+        }
 
+        if (found) {
+          foundMods.add(found.name);
+          this.modReasons[found.folder] = { reason, score };
+          this.tags.add("modded");
+          if (score < bestScore) {
+            bestScore = score;
+            bestMod = found;
+          }
+        }
+      });
+    }
 
     if (bestMod)
       game.mods
