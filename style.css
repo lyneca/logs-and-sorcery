@@ -23,6 +23,10 @@ body {
     text-align: center;
 }
 
+a, a:visited, a:active, a:link {
+    color: var(--bright_green);
+}
+
 h1 {
     font-family: 'Nova Cut', sans-serif;
     margin-top: 10px;
@@ -50,7 +54,7 @@ h2, h3 {
 
 .help {
     transition: max-height 0.5s ease-in-out, opacity 0.2s ease-in-out;
-    max-height: 220px;
+    max-height: 260px;
 }
 
 .help p {
