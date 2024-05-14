@@ -12,6 +12,7 @@ const PROGRESS_SORT = 10;
 const LOG_REGEX =
   /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2}).(?<ms>\d+) +(?<level>[A-Z]+) .+?: /;
 const XML_REGEX = /\r?<\\*color.*?>/g;
+const UNMODDED_REGEX = /^(ThunderRoad|Unity|DelegateList|RainyReignGames|ONSPAudioSource|SteamVR|OVR|OculusVR|System|StateTracker|\(wrapper|Valve|delegate|MonoBehaviourCallbackHooks|Newtonsoft|TMPro|UsingTheirs|FadeMixerGroup)/;
 
 const IGNORED_ARGS = [
   "Newtonsoft.",
@@ -34,7 +35,8 @@ const TAG_ICONS = {
 }
 
 const COMMON_NAMESPACES = {
-  TOR: "TheOuterRim"
+  TOR: "TheOuterRim",
+  AMP: "MultiplayerMod"
 }
 
 const SYSTEM_INFO_KEYS = {
@@ -54,16 +56,22 @@ const SYSTEM_INFO_KEYS = {
   platformRequiresExplicitMsaaResolve: "platform_requires_explicit_msaa_resolve"
 }
 
+const CERTAINTY = {
+  certain: "Almost certain this mod is the cause.",
+  sure: "Pretty sure that this mod is the cause, but not guaranteed.",
+  likely: "This mod could be cause, but it's definitely not guaranteed.",
+  unsure: "This mod may or may not be the cause; this is simply the best guess available."
+}
+
 const REASONS = {
   name: "Saw mod's name in log entry.",
   folder: "Saw mod folder name in log entry.",
-  namespace: "Matched C# namespace to mod DLL name.",
-  dll: "Matched mod DLL name.",
-  fuzzy: "Used fuzzy text matching to guess mod.",
+  namespace: "Matched C# namespace to a namespace associated with this mod.",
+  assembly: "Matched C# namespace to mod DLL name.",
+  fuzzy: "Used fuzzy text matching to guess mod. Closeness: [[score]]",
   base_game: "Appears to be unmodded entry.",
   address: "Matched mod Addressables address.",
 };
-
 
 const SUGGESTIONS = {
   "delete-save": {
@@ -394,10 +402,10 @@ function heading(text, level = 2, className = undefined) {
 }
 
 function modCertainty(score) {
-  if (score == 0) return "certainty-certain";
-  if (score <= 0.2) return "certainty-sure";
-  if (score <= 1) return "certainty-pretty-sure";
-  return "certainty-unsure";
+  if (score == 0) return "certain";
+  if (score <= 0.1) return "sure";
+  if (score <= 0.5) return "likely";
+  return "unsure";
 }
 
 function modCertaintyIcon(score) {
@@ -407,8 +415,12 @@ function modCertaintyIcon(score) {
   return '<i class="indent icofont-ui-close"></i>';
 }
 
-function getReason(reason) {
-  return REASONS[reason] ?? "";
+function getReason(reason, score) {
+  return REASONS[reason].replace("[[score]]", Math.round(score * 100) / 100) ?? "";
+}
+
+function getCertainty(score) {
+  return CERTAINTY[modCertainty(score)] ?? "";
 }
 
 async function searchBar(container) {
@@ -641,6 +653,7 @@ class Game {
     this.timeline = [];
     this.orphanExceptions = [];
     this.missingData = [];
+    this.loadErrors = [];
     this.selectors = {};
     this.system = { game_directory: null, platform: null };
     this.suggestions = {};
@@ -666,44 +679,50 @@ class Game {
   findModByName(name) {
     let found = this.mods.filter((mod) => mod.name == name);
     if (found.length > 0) return foundMod(found[0], 0, "name");
-    return [];
+    return foundMod();
   }
 
   findModByFolder(folder) {
     let found = this.mods.filter((mod) => mod.folder == folder);
     if (found.length > 0) return foundMod(found[0], 0, "folder");
-    return [];
+    return foundMod();
   }
 
   findModByNamespace(namespace) {
-    let found = this.mods.filter((mod) => mod.namespaces.has(namespace) || mod.folder == namespace);
+    let found = this.mods.filter(
+      (mod) =>
+        Array.from(mod.namespaces).filter(
+          (each) => each.toLowerCase() == namespace.toLowerCase()
+        ).length > 0
+    );
     if (found.length > 0) return foundMod(found[0], 0, "namespace");
-    return [];
+    return foundMod();
   }
 
   findModByAssembly(assembly) {
     let found = this.mods.filter(
       (mod) =>
         mod.assemblies.filter(
-          (eachAssembly) => eachAssembly.dll == assembly + ".dll"
+          (eachAssembly) => eachAssembly.dll.toLowerCase() == assembly.toLowerCase() + ".dll"
         ).length > 0
     );
-    if (found.length > 0) return foundMod(found[0], 0, "dll");
-    return [];
+    if (found.length > 0) return foundMod(found[0], 0, "assembly");
+    return foundMod();
   }
 
   fuzzyFindMod(mod) {
+    mod = replaceNamespaces(mod.replace(/^Spell/, ""));
     if (!game.modFinder)
       this.updateModFinder();
     let search = game.modFinder.search(mod);
     if (search.length > 0) {
       return foundMod(search[0].item, search[0].score, "fuzzy");
     }
-    return [];
+    return foundMod();
   }
 
   findModByData(id, address) {
-    if (address.startsWith("Bas.")) return [game.baseGame, 0, "base_game"];
+    if (address.startsWith("Bas.")) return foundMod(game.baseGame, 0, "base_game");
     if (address.split(".").length >= 3) {
       let [author, mod, ...data] = address.split(".");
       if (id.split(".").length > 1) {
@@ -726,7 +745,7 @@ class Game {
     if (data.length > 0) {
       return this.findModByFolder(data[0].item.folder);
     }
-    return [];
+    return foundMod();
   }
 
   updateModFinder() {
@@ -746,11 +765,7 @@ class Game {
     }
     this.baseGame = new Mod("Base Game Errors", "N/A");
     this.begun = true;
-    this.modFinder = new Fuse(this.mods, {
-      keys: ["assemblies", "name", "folder", "author"],
-      includeScore: true,
-      useExtendedSearch: true,
-    });
+    this.updateModFinder();
     this.dataFinder = new Fuse(
       this.mods.flatMap((mod) =>
         mod.json.map((json) => {
@@ -823,17 +838,22 @@ class Game {
     if (this.areas.length > 0) {
       containers.mods.appendChild(
         this.selector("Areas", this.renderAreaList, this.areas.map(list => list.length - 2).reduce((acc, a) => acc + a))
-      )
+      );
     }
     if (Object.keys(this.inventories).length > 0) {
       containers.mods.appendChild(
         this.selector("Inventories", this.renderInventories, Object.values(this.inventories).map(list => list.length).reduce((acc, a) => acc + a))
-      )
+      );
     }
     if (Object.keys(this.missingDamagers).length > 0) {
       containers.mods.appendChild(
         this.selector("Missing Damagers", this.renderMissingDamagers, Object.values(this.missingDamagers).reduce((acc, group) => acc + Array.from(group).length, 0))
-      )
+      );
+    }
+    if (this.loadErrors.length > 0) {
+      containers.mods.appendChild(
+        this.selector("Unknown Load Errors", this.renderLoadErrors, this.loadErrors.length)
+      );
     }
     if (this.orphanExceptions.length > 0) {
       setStatus(`Collapsing ${this.orphanExceptions.length} orphan exceptions`);
@@ -850,7 +870,7 @@ class Game {
 
     setStatus(`Matching ${this.missingData.length} missing data entries with mods`)
     for (let data of this.missingData) {
-      let [mod, score, reason] = game.findModByData(data.id, data.address) ?? []
+      let {mod, score, reason} = game.findModByData(data.id, data.address) ?? []
       mod?.missingData.push({
         address: data.address,
         id: data.id,
@@ -1043,6 +1063,14 @@ class Game {
     );
   }
 
+  async renderLoadErrors() {
+    return wrapDetails(
+      "Unknown Load Errors",
+      objectListToTable(this.loadErrors),
+      "This is a list of EffectData addresses that failed to load, for which Logs &amp; Sorcery could not guess the offending mod."
+    );
+  }
+
   async renderIncompatibleMods() {
     return wrapDetails(
       "Incompatible Mods",
@@ -1151,6 +1179,7 @@ class Mod {
 
   complete() {
     this.collapseExceptions();
+    this.name = this.name.split(/\\/)[0].replace(/[\d-]+$/, "");
     this.invalidPaths = Array.from(new Set(this.invalidPaths)).map((item) => {
       return {
         bundle: item
@@ -1226,6 +1255,9 @@ class Mod {
         name: this.name,
         author: this.author,
         folder: code(this.folder),
+        namespaces: Array.from(this.namespaces)
+          .map((namespace) => code(namespace))
+          .join(", "),
         assemblies: this.assemblies
           .map((assembly) => code(assembly.dll))
           .join(", "),
@@ -1355,18 +1387,20 @@ class Exception {
     let bestMod;
     this.mods.forEach((mod) => {
       if (mod == "Base Game Errors") return;
-      let {found, score, reason} = game.findModByNamespace(mod);
+      let {found, score, reason} = game.findModByNamespace(replaceNamespaces(mod));
       if (!found) {
         ({found, score, reason} = game.findModByAssembly(replaceNamespaces(mod)));
       }
       if (!found) {
-        console.log(mod);
+        ({found, score, reason} = game.findModByFolder(replaceNamespaces(mod)));
+      }
+      if (!found) {
         ({found, score, reason} = game.fuzzyFindMod(mod));
       }
 
       if (found) {
         foundMods.add(found.name);
-        this.modReasons[found.name] = { reason, score };
+        this.modReasons[found.folder] = { reason, score };
         this.tags.add("modded");
         if (score < bestScore) {
           bestScore = score;
@@ -1379,10 +1413,10 @@ class Exception {
     if (bestMod)
       game.mods
         .find((mod) => mod.folder == bestMod.folder)
-        .addException(this, bestMod.name, this.modReasons[bestMod.name].reason);
+        .addException(this, bestMod.name, this.modReasons[bestMod.folder].reason);
 
     if (bestMod)
-      this.mods = [bestMod.name];
+      this.mods = [bestMod];
     else
       this.mods = [];
 
@@ -1421,7 +1455,7 @@ class Exception {
 
     if (this.type == "MissingMethodException") {
       match(this.error, /Method not found: (?<type>.+?(\<.+\>)?) (?<signature>.+)/, ({ type, signature }) => {
-        let methodMods = Array.from(this.mods).join(", ");
+        let methodMods = this.mods.map(mod => mod.name).join(", ");
         game.addSuggestion("missing-method", {mods: methodMods ? methodMods : italic("(Unknown)"), method: code(new ExceptionLine(signature).getPath())})
         this.error = "Method not found: " + span(new ExceptionLine(signature).getPath(), "code");
       });
@@ -1441,7 +1475,7 @@ class Exception {
       keywords.add(tag);
     }
     for (let mod of this.mods) {
-      keywords.add(mod);
+      keywords.add(mod.name);
     }
     return Array.from(keywords).join(" ").toLowerCase();
   }
@@ -1481,15 +1515,17 @@ class Exception {
                         : ""
                     }${this.type}</div>
                     <div class="exception-preview">
-                    ${this.lines.length > 0 ? `<span>${this.lines[0].renderPreview()}</span>` : ""}
-                    <span class="exception-level">${this.area ? `<span class="exception-line-location dim">${this.area}</span><span class="dim code"> ~ </span>` : ""}${this.level ? `<span class="exception-line-location dim">${this.level}</span>` : ""}</span></span></span>
                     ${
                       [...this.mods].length > 0
                         ? `<span class="exception-title fade">${[...this.mods]
-                            .map((mod) => span(mod + modCertaintyIcon(this.modReasons[mod].score), `exception-mod reason-${this.modReasons[mod].reason} ${modCertainty(this.modReasons[mod].score)}`, {title: getReason(this.modReasons[mod].reason)}))
+                            .map((mod) => span(mod.name + modCertaintyIcon(this.modReasons[mod.folder].score),
+                                               `exception-mod reason-${this.modReasons[mod.folder].reason} certainty-${modCertainty(this.modReasons[mod.folder].score)}`,
+                                               {title: getCertainty(this.modReasons[mod.folder].score) + " " + getReason(this.modReasons[mod.folder].reason, this.modReasons[mod.folder].score)}))
                             .join(" ")}</span>`
                         : ""
                     }
+                    ${this.lines.length > 0 ? `<span>${this.lines[0].renderPreview()}</span>` : ""}
+                    <span class="exception-level">${this.area ? `<span class="exception-line-location dim">${this.area}</span><span class="dim code"> ~ </span>` : ""}${this.level ? `<span class="exception-line-location dim">${this.level}</span>` : ""}</span></span></span>
                     </div>
                     ${
                       this.error
@@ -1542,9 +1578,9 @@ class ExceptionLine {
       return [...funcSig.groups.func.matchAll(/(\w+(<.+?>)?)(?:[^:. ()]+)?/g)]
         .map((x) =>
           x[1].replace(
-            /<(.+)>/,
+            /<(.+)>/g,
             (_, type) =>
-              ` <span class="dim">&lt;${type.split(".").pop()}&gt;</span>`
+              `${type.split(".").pop()}`
           )
         )
         .filter((x) => x != "ctor");
@@ -2023,11 +2059,17 @@ async function parse(lines) {
           prev,
           /EffectData: (?<id>.+?)'s effectModuleMesh meshAddress is null or empty. Has it not been set\?/,
           (groups) => {
-            let mod = game.fuzzyFindMod(groups.id);
-            mod?.loadErrors.push({
-              id: groups.id,
-              type: "EffectModuleMesh"
-            })
+            let mod = game.fuzzyFindMod(groups.id).found;
+            if (mod)
+              mod?.loadErrors.push({
+                id: groups.id,
+                type: "EffectModuleMesh",
+              });
+            else
+              game?.loadErrors.push({
+                id: groups.id,
+                type: "EffectModuleVfx",
+              });
           }
         );
 
@@ -2037,17 +2079,22 @@ async function parse(lines) {
           (groups) => {
             let parts = groups.address.split(".");
             let mod;
-            if (parts.count > 2)
-              mod = game.fuzzyFindMod(parts[1]).found;
+            if (parts.count > 2) mod = game.fuzzyFindMod(parts[1]).found;
             if (!mod && parts.count > 1)
               mod = game.fuzzyFindMod(parts[0]).found;
-            if (!mod)
-              mod = game.fuzzyFindMod(groups.id).found;
-            mod?.loadErrors.push({
-              id: groups.id,
-              address: groups.address,
-              type: "EffectModuleParticle"
-            })
+            if (!mod) mod = game.fuzzyFindMod(groups.id).found;
+            if (mod)
+              mod.loadErrors.push({
+                id: groups.id,
+                address: groups.address,
+                type: "EffectModuleParticle",
+              });
+            else
+              game.loadErrors.push({
+                id: groups.id,
+                address: groups.address,
+                type: "EffectModuleParticle",
+              });
           }
         );
 
@@ -2056,10 +2103,16 @@ async function parse(lines) {
           /EffectData: (?<id>.+?)'s effectModuleVfx does not have a valid vfxAddress or meshAddress\./,
           (groups) => {
             let mod = game.fuzzyFindMod(groups.id).found;
-            mod?.loadErrors.push({
-              id: groups.id,
-              type: "EffectModuleVfx"
-            })
+            if (mod)
+              mod.loadErrors.push({
+                id: groups.id,
+                type: "EffectModuleVfx",
+              });
+            else
+              game.loadErrors.push({
+                id: groups.id,
+                type: "EffectModuleVfx",
+              });
           }
         );
 
@@ -2267,7 +2320,8 @@ async function parse(lines) {
               exception.tags.add("harmony");
             if (
               !groups.location.match(
-                /^(ThunderRoad|Unity|DelegateList|RainyReignGames|ONSPAudioSource|SteamVR|OVR|OculusVR|System|StateTracker|\(wrapper|Valve|delegate|MonoBehaviourCallbackHooks|Newtonsoft|TMPro|UsingTheirs)/
+                UNMODDED_REGEX
+                
               )
             ) {
               let match = groups.location.match(/^(?<namespace>(\w|\+)+)\./);

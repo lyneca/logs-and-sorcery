@@ -365,12 +365,21 @@ pre#directory, pre.directory {
     overflow-y: hidden;
 }
 
+.exception-preview {
+    margin: 5px 0;
+}
+
 .exception-mod {
     background-color: rgba(0, 0, 0, 0.2);
-    padding: 5px;
+    padding: 3px 5px;
     border-radius: 5px;
     font-style: normal;
     border: 1px solid rgba(0, 0, 0, 0.2);
+    transition: background-color 0.2s ease-in-out;
+}
+
+.exception-mod:hover {
+    background-color: var(--bg);
 }
 
 .certainty-certain {
@@ -381,7 +390,7 @@ pre#directory, pre.directory {
     border-color: var(--neutral_green);
 }
 
-.certainty-pretty-sure {
+.certainty-likely {
     border-color: var(--neutral_orange);
 }
 
@@ -449,10 +458,6 @@ pre#directory, pre.directory {
 }
 
 .exception-title {
-    margin: 5px 0;
-    padding-top: 5px;
-    display: block;
-    /* font-style: italic; */
 }
 
 .label-div {
@@ -823,5 +828,9 @@ code.padded {
     }
     .thin {
         max-width: 100%;
+    }
+    .exception-title {
+        display: block;
+        margin-bottom: 5px;
     }
 }
