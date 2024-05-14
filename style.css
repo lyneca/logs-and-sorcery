@@ -370,6 +370,27 @@ pre#directory, pre.directory {
     padding: 5px;
     border-radius: 5px;
     font-style: normal;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.certainty-certain {
+    border-color: var(--neutral_blue);
+}
+
+.certainty-sure {
+    border-color: var(--neutral_green);
+}
+
+.certainty-pretty-sure {
+    border-color: var(--neutral_orange);
+}
+
+.certainty-unsure {
+    border-color: var(--neutral_red);
+}
+
+.exception-level {
+    float: right;
 }
 
 .select {
