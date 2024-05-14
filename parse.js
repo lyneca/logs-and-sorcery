@@ -770,7 +770,7 @@ class Game {
         icon("warning", undefined, "color-warning") + "Unknown - Pirated?";
       this.addSuggestion("pirated");
     }
-    this.baseGame = new Mod("Base Game Errors", "N/A");
+    this.baseGame = new Mod("Base Game", "N/A");
     this.begun = true;
     this.updateModFinder();
     this.dataFinder = new Fuse(
@@ -1419,8 +1419,10 @@ class Exception {
     let bestScore = 100000;
     if (!foundMod) {
       this.mods.forEach((mod) => {
-        if (mod == "Base Game Errors") {
-          bestMod = mod;
+        if (mod == "Base Game") {
+          bestMod = game.baseGame;
+          this.modReasons[bestMod.folder] = { reason: "base_game", score: 0 };
+          bestScore = -1;
           return;
         }
         let { found, score, reason } = game.findModByNamespace(
@@ -1452,10 +1454,20 @@ class Exception {
       });
     }
 
-    if (bestMod)
+    if (bestMod && bestMod.name == game.baseGame.name)
+      game.baseGame.addException(
+        this,
+        bestMod.name,
+        this.modReasons[bestMod.folder].reason
+      );
+    else if (bestMod)
       game.mods
         .find((mod) => mod.folder == bestMod.folder)
-        .addException(this, bestMod.name, this.modReasons[bestMod.folder].reason);
+        .addException(
+          this,
+          bestMod.name,
+          this.modReasons[bestMod.folder].reason
+        );
 
     if (bestMod)
       this.mods = [bestMod];
@@ -2391,7 +2403,7 @@ async function parse(lines) {
               exception.tags.add("modded");
             } else {
               let match = groups.location.match(/^(?<namespace>(\w|\+)+)\./);
-              if (match != null) exception.mods.add("Base Game Errors");
+              if (match != null) exception.mods.add("Base Game");
               exception.tags.add("unmodded");
             }
           }
