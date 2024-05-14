@@ -1419,7 +1419,10 @@ class Exception {
     let bestScore = 100000;
     if (!foundMod) {
       this.mods.forEach((mod) => {
-        if (mod == "Base Game Errors") return;
+        if (mod == "Base Game Errors") {
+          bestMod = mod;
+          return;
+        }
         let { found, score, reason } = game.findModByNamespace(
           replaceNamespaces(mod)
         );
@@ -1897,6 +1900,12 @@ async function parse(lines) {
       line = line.replace(LOG_REGEX, "");
     });
 
+    match(
+      line,
+      /^\d+-\d+-\d+T\d+:\d+:\d+.\d+Z (?<line>.+)/,
+      (groups) => (line = groups.line)
+    );
+
     // determine state changes
     if (state == "exception") {
       if (
@@ -2162,6 +2171,20 @@ async function parse(lines) {
           (groups) => {
             let mod = game.findModByName(groups.name).found;
             mod.namespaces.add(groups.namespace);
+          }
+        );
+
+        // Match addressable content build bugs
+        match(
+          line,
+          /Cannot recognize file type for entry located at '(?<path>.+)'. Asset import failed for using an unsupported file type./,
+          (groups) => {
+            game.addEvent(
+              "Asset import failed",
+              "Cannot recognize file type for entry; asset import failed for using an unsupported file type.",
+              { path: groups.path },
+              "error"
+            );
           }
         );
 
