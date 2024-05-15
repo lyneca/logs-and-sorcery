@@ -31,6 +31,7 @@
     <script src="html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
     <script src=" https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js "></script>
+    <script type="text/javascript" src="imurmurhash.min.js"></script>
     <script>
         window.dataLayer = window.dataLayer || [];
         function gtag() { dataLayer.push(arguments); }
@@ -53,6 +54,15 @@
             <p><strong>You too can help out!</strong> If you find a bug or have a feature request, please message me in my <a href="https://discord.gg/lyneca">Discord server!</a></p>
         </div>
         <div class="italic" id="status">Waiting for file...</div>
+            <div class="explanation" style="display: none;">
+                <span style="width: 50%;">READ</span>
+                <div class="vsep"></div>
+                <span style="width: 30%;">PROCESS</span>
+                <div class="vsep"></div>
+                <span style="width: 10%;">SORT</span>
+                <div class="vsep"></div>
+                <span style="width: 10%;">RENDER</span>
+            </div>
         <div class="progress">
             <div class="progress-bar" id="progress-bar"></div>
         </div>

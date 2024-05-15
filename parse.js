@@ -152,7 +152,7 @@ const ARG_REPLACEMENTS = {
 
 const capitals = ["dll", "json", "id", "gpu", "vram", "hmd"];
 
-String.prototype.hashCode = function () {
+const simpleHash = () => {
   var hash = 0,
     i,
     chr;
@@ -164,6 +164,36 @@ String.prototype.hashCode = function () {
   }
   return hash;
 };
+
+const cyrb64 = (seed = 0) => {
+  let str = this;
+  let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+  for(let i = 0, ch; i < str.length; i++) {
+    ch = str.charCodeAt(i);
+    h1 = Math.imul(h1 ^ ch, 2654435761);
+    h2 = Math.imul(h2 ^ ch, 1597334677);
+  }
+  h1  = Math.imul(h1 ^ (h1 >>> 16), 2246822507);
+  h1 ^= Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2  = Math.imul(h2 ^ (h2 >>> 16), 2246822507);
+  h2 ^= Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  // For a single 53-bit numeric return value we could return
+  return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+  // but we instead return the full 64-bit value:
+  // return [h2>>>0, h1>>>0];
+};
+
+const cyrb64Hash = (str, seed = 0) => {
+  const [h2, h1] = cyrb64(str, seed);
+  return h2.toString(36).padStart(7, '0') + h1.toString(36).padStart(7, '0');
+}
+
+const murmurHash = function() {
+  return new MurmurHash3().hash(this).result();
+}
+
+String.prototype.hashCode = murmurHash;
+
 
 const fileInput = document.querySelector("#file-input");
 const fileClickInput = document.getElementById("file-click-input");
@@ -193,6 +223,7 @@ fileClickInput.addEventListener("change", async (e) => {
 
 var lastBreak = Date.now()
 let startTime = Date.now();
+let parseStart = 0;
 let isClicking = false;
 
 let takeABreak = () => new Promise((resolve) => setTimeout(resolve));
@@ -214,6 +245,38 @@ async function readFileText(file) {
       resolve(reader.result);
     }
   });
+}
+
+const SLICE_SIZE = 256;
+const BATCH_SIZE = 1;
+
+async function readFileLines(file, callback) {
+  let leftover = "";
+  let index = 0;
+  let slices = [];
+  while (index < file.size) {
+    let slice = await file.slice(index, index + SLICE_SIZE).text();
+    slices = slice.replace(/\r/g, "").split("\n");
+    for (let i = 0; i < slices.length - 1; i++) {
+      let part = slices[i];
+      let line = leftover + part;
+      if (BATCH_SIZE > 1) {
+        slices.push(line);
+        if (slices.length == BATCH_SIZE) {
+          for (let each of slices) await callback(each, index, file.size);
+          slices.length = 0;
+        }
+      } else {
+        await callback(line, index, file.size);
+      }
+
+      leftover = "";
+    }
+    if (BATCH_SIZE > 1)
+      for (let each of slices) await callback(each, index, file.size);
+    leftover = slices[slices.length - 1];
+    index += SLICE_SIZE;
+  }
 }
 
 async function sleep(duration) {
@@ -252,24 +315,31 @@ async function loadFile(file) {
     document.querySelector("#file-input").style.display = "none";
   }, 200);
   setProgress(0, true);
-  let lines = await readFileText(file);
-  lines = lines.replace(/\r\n/g, "\n")
-    .split(/\n/)
-    .map((line) =>
-      line.replace(/^\d+-\d+-\d+T\d+:\d+:\d+\.\d+: [A-Z]+ .+? *: /g, "")
-        .replace(/^\d+-\d+-\d+T\d+:\d+:\d+\.\d+ \d+:\d+:\d+.\d+\s+\d+\s+\d+ [A-Z] Unity\s+: /g, "")
-      // 2023-11-19T01:45:22.635 INFO UnityEngine.SetupCoroutine.InvokeMoveNext       : Load options...
-    );
+  // let lines = await readFileText(file);
+  // lines = lines.replace(/\r\n/g, "\n")
+  //   .split(/\n/)
+  //   .map((line) =>
+  //     line.replace(/^\d+-\d+-\d+T\d+:\d+:\d+\.\d+: [A-Z]+ .+? *: /g, "")
+  //       .replace(/^\d+-\d+-\d+T\d+:\d+:\d+\.\d+ \d+:\d+:\d+.\d+\s+\d+\s+\d+ [A-Z] Unity\s+: /g, "")
+  //     // 2023-11-19T01:45:22.635 INFO UnityEngine.SetupCoroutine.InvokeMoveNext       : Load options...
+  //   );
+  let totalTimeStart = parseStart = Date.now();
   setStatus("Parsing log lines")
-  await parse(lines);
+  await parse(file);
   startTime = Date.now();
+  parseStart = Date.now();
   setStatus("Sorting mods")
   await game.sort();
+  game.info.sort_time = (Date.now() - parseStart) / 1000;
   setStatus("Rendering page")
-  setProgress(PROGRESS_FINISH + PROGRESS_READ + PROGRESS_SORT);
+  setProgress(PROGRESS_READ + PROGRESS_FINISH + PROGRESS_SORT);
+  parseStart = Date.now();
   await game.render();
+  game.info.render_time = (Date.now() - parseStart) / 1000;
   hideStatus();
   setProgress(100);
+  game.info.total_time = (Date.now() - totalTimeStart) / 1000;
+  await clickButton("selector-system-info", false);
 }
 
 function getTimestamp(metadata) {
@@ -280,6 +350,7 @@ function getTimestamp(metadata) {
 
 function niceify(string) {
   return string
+    .replace(/^lns_/g, "Logs & Sorcery: ")
     .replace(/_/g, " ")
     .replace(/(\d+),(\d+)/g, "$1.$2")
     .split(" ")
@@ -370,7 +441,7 @@ function objectToTable(obj, title, includeEmpty = true, includeZero = true) {
         return (includeEmpty ||
           (value != "" && value != null && value != undefined)) &&
         (includeZero || (value != 0 && value != "0"))
-          ? `<tr><td>${niceify(key)}</td><td>${renderValue(value)}</td></tr>`
+          ? `<tr><td>${niceify(key)}</td><td id="td-${key}">${renderValue(value)}</td></tr>`
           : ""}
       )
       .join("") +
@@ -557,9 +628,11 @@ function p(string, className) {
   return `<p${className ? ' class="' + className + '"' : ""}>${string}</p>`;
 }
 
-function span(string, className, params) {
+function span(string, className, params, style) {
   return `<span${
     className ? ' class="' + className + '"' : ""
+  }${
+    style ? ' style="' + style + '"' : ""
   }${
     params ? Object.entries(params).map(([key, value]) => `${key}="${value}"`).join(" ") : ""
   }>${string}</span>`;
@@ -652,17 +725,18 @@ class Game {
     this.baseGame = null;
     this.exceptions = [];
     this.timeline = [];
-    this.orphanExceptions = [];
     this.missingData = [];
     this.loadErrors = [];
     this.selectors = {};
     this.system = { game_directory: null, platform: null };
+    this.info = {};
     this.suggestions = {};
     this.levels = []
     this.incompatibleMods = [];
     this.begun = false;
     this.lastEvent = null;
     this.lastSeed = 0;
+    this.lastException = null;
   }
 
   findOrCreateMod(name, folder) {
@@ -721,9 +795,7 @@ class Game {
     mod = replaceNamespaces(mod.replace(/^Spell/, ""));
     if (!game.modFinder)
       this.updateModFinder();
-    console.log(mod);
     let search = game.modFinder.search(mod);
-    console.log(search);
     if (search.length > 0) {
       return foundMod(search[0].item, search[0].score, "fuzzy");
     }
@@ -793,8 +865,8 @@ class Game {
     );
   }
 
-  async incrementProgress() {
-    this.currentCount++;
+  async incrementProgress(count = 1) {
+    this.currentCount += count;
     setProgress(PROGRESS_READ + this.currentCount / this.maxCount * PROGRESS_FINISH)
     await maybeTakeABreak();
   }
@@ -807,23 +879,23 @@ class Game {
     }
     containers.mods.replaceChildren([]);
     containers.mods.appendChild(this.selector("System Info", this.renderGameInfo));
-    await clickButton("selector-system-info", false);
     this.maxCount =
       this.exceptions.length +
-      this.mods.length +
+      this.mods.length + 1 +
       this.timeline.length +
       Object.keys(this.suggestions).length +
       this.missingData.length;
-    setStatus(`Processing ${this.exceptions.length} exceptions`)
+    setStatus(`Processing ${this.exceptions.length} unique exceptions`)
     for (const exception of this.exceptions) {
       exception.complete()
       await this.incrementProgress();
     }
-    this.maxCount += this.orphanExceptions.length;
+    setStatus(`Processing base game issues`)
+    await game.baseGame.complete();
     setStatus(`Processing ${this.mods.length} mods`)
-    game.baseGame.complete();
+    let i = 0;
     for (const mod of this.mods) {
-      mod.complete()
+      await mod.complete()
       await this.incrementProgress();
     }
     setStatus(`Collapsing ${this.suggestions.length} suggestions`)
@@ -835,23 +907,17 @@ class Game {
         [...Object.keys(this.suggestions)].length
       )
     );
-    // setStatus(`Creating timing section`);
-    // containers.mods.appendChild(
-    //   this.selector("Load Timings", this.renderTimings)
-    // );
-    setStatus(`Collapsing ${this.timeline.length} timeline events`)
-    await this.collapseTimeline();
     containers.mods.appendChild(
       this.selector("Timeline", this.renderTimeline, this.timeline.length)
     );
     if (this.areas.length > 0) {
       containers.mods.appendChild(
-        this.selector("Areas", this.renderAreaList, this.areas.map(list => list.length - 2).reduce((acc, a) => acc + a))
+        this.selector("Areas", this.renderAreaList, this.areas.map(list => list.length - 2).reduce(reduceNumber, 0))
       );
     }
     if (Object.keys(this.inventories).length > 0) {
       containers.mods.appendChild(
-        this.selector("Inventories", this.renderInventories, Object.values(this.inventories).map(list => list.length).reduce((acc, a) => acc + a))
+        this.selector("Inventories", this.renderInventories, Object.values(this.inventories).map(list => list.length).reduce(reduceNumber, 0))
       );
     }
     if (Object.keys(this.missingDamagers).length > 0) {
@@ -862,18 +928,6 @@ class Game {
     if (this.loadErrors.length > 0) {
       containers.mods.appendChild(
         this.selector("Unknown Load Errors", this.renderLoadErrors, this.loadErrors.length)
-      );
-    }
-    if (this.orphanExceptions.length > 0) {
-      setStatus(`Collapsing ${this.orphanExceptions.length} orphan exceptions`);
-      await this.collapseOrphanExceptions();
-      containers.mods.appendChild(
-        this.selector(
-          "Orphan Exceptions",
-          this.renderOrphanExceptions,
-          undefined,
-          this.orphanExceptions.length
-        )
       );
     }
 
@@ -915,8 +969,13 @@ class Game {
   }
 
   addException(exception) {
-    this.timeline.push(exception);
-    this.exceptions.push(exception);
+    if (this.lastException && this.lastException.getHash() == exception.getHash()) {
+      this.lastException.count++;
+    } else {
+      this.timeline.push(exception);
+      this.exceptions.push(exception);
+      this.lastException = exception;
+    }
   }
 
   addTime(process, time) {
@@ -928,6 +987,7 @@ class Game {
   addEvent(text, description, props, color, metadata) {
     let event = new TimelineEvent(text, description, props, color, metadata ?? this.metadata);
     this.lastEvent = event;
+    this.lastException = null;
     this.timeline.push(event);
     return event;
   }
@@ -994,14 +1054,52 @@ class Game {
     ].filter((elem) => elem != null)) {
       containers.mods.appendChild(entry);
     }
+    let startProgress = PROGRESS_READ + PROGRESS_FINISH + PROGRESS_SORT;
+    let i = 0;
+    
     for (let mod of this.mods) {
       containers.mods.appendChild(mod.renderList());
       await maybeTakeABreak();
+      i++;
+      setProgress(startProgress + (100 - startProgress) * (i / this.mods.length));
     }
   }
 
   async renderGameInfo() {
-    return wrapDetails("System Info", objectToTable(this.system));
+    return wrapDetails("System Info", objectToTable(this.system)) + hr() + wrapDetails("Log Parse Info", this.renderParseInfo());
+  }
+
+  renderTime(title, width, color) {
+    return `<span class="time-block" style="width:${width * 100}%; background-color: var(--${color})">${(width > 0.05) ? title : ""}</span>`;
+  }
+
+  renderParseInfo() {
+    return (
+      p(`Log file parsed in ${this.info.total_time}s.`, "suggestion-text") +
+      div(
+        this.renderTime(
+          "Parse",
+          this.info.parse_time / this.info.total_time,
+          "neutral_blue"
+        ) +
+          this.renderTime(
+            "Process",
+            this.info.process_time / this.info.total_time,
+            "neutral_green"
+          ) +
+          this.renderTime(
+            "Sort",
+            this.info.sort_time / this.info.total_time,
+            "neutral_red"
+          ) +
+          this.renderTime(
+            "Render",
+            this.info.render_time / this.info.total_time,
+            "neutral_yellow"
+          ),
+        "time-container pad"
+      )
+    );
   }
 
   async renderSuggestions() {
@@ -1035,10 +1133,6 @@ class Game {
 
   async renderTimings() {
     return [div(`<canvas id="timing"></canvas>`), loadTimings];
-  }
-
-  async renderOrphanExceptions() {
-    await renderListOfEvents(containers.details, this.orphanCollapsed.map(exception => exception.exception), "Orphan Exceptions");
   }
 
   async renderTimeline() {
@@ -1124,46 +1218,6 @@ class Game {
       await this.incrementProgress();
     }
   }
-
-  async collapseTimeline() {
-    const collapsed = [];
-    let lastEvent = null;
-    let lastEventHash = "";
-    for (const event of this.timeline) {
-      if (event.eventType == "exception") {
-        const hash = event.getHash();
-        if (hash != lastEventHash) {
-          lastEventHash = hash;
-          lastEvent = event;
-          lastEvent.count = 1;
-          collapsed.push(event);
-        } else {
-          lastEvent.count++;
-        }
-      } else {
-        collapsed.push(event);
-        lastEventHash = "";
-      }
-      await this.incrementProgress();
-    }
-    this.timeline = collapsed;
-  }
-
-  async collapseOrphanExceptions() {
-    let collapsed = {};
-    let keys = []
-    for (const exception of this.orphanExceptions) {
-      const hash = exception.getHash()
-      if (collapsed[hash]) {
-        collapsed[hash].count++;
-      } else {
-        collapsed[hash] = { exception: exception, count: 1 };
-        keys.push(hash);
-      }
-      await this.incrementProgress();
-    }
-    this.orphanCollapsed = keys.map(key => collapsed[key]);
-  }
 }
 
 let game = new Game();
@@ -1180,14 +1234,13 @@ class Mod {
     this.missingDLLs = [];
     this.missingData = [];
     this.exceptions = [];
-    this.collapsed = [];
     this.overrides = [];
     this.json = [];
     this.tags = new Set();
   }
 
-  complete() {
-    this.collapseExceptions();
+  async complete() {
+    let start = Date.now();
     this.name = this.name.split(/\\/)[0].replace(/[\d-]+$/, "");
     this.invalidPaths = Array.from(new Set(this.invalidPaths)).map((item) => {
       return {
@@ -1199,13 +1252,14 @@ class Mod {
         .length > 0
     )
       this.tags.add("harmony");
+    this.time = Date.now() - start;
   }
 
   counts() {
     return Object.entries({
       load: this.loadErrors.length,
       data: this.missingData.length + this.invalidPaths.length,
-      error: this.exceptions.length,
+      error: this.exceptionCount()
     }).map(([desc, num]) =>
       num > 0 ? `<span class="mod-error-count">${num} ${desc}</span>` : ""
     );
@@ -1217,12 +1271,12 @@ class Mod {
   }
 
   exceptionCount() {
-    let count = this.exceptions.length;
+    let count = Object.values(this.exceptions).reduce(reduceExceptions, 0);
     return count > 0 ? createSpan("mod-exception-count", {}, count) : "";
   }
 
   sortKey() {
-    let value = this.loadErrors.length + this.missingData.length + this.exceptions.length;
+    let value = this.loadErrorCount() + this.exceptionCount();
     return value;
   }
 
@@ -1241,21 +1295,18 @@ class Mod {
     return Array.from(this.tags).map(tag => TAG_ICONS[tag] ? createIcon(TAG_ICONS[tag], 'tag-icon') : '');
   }
 
-  collapseExceptions() {
-    let collapsed = {};
-    this.exceptions.forEach((exception) => {
-      const hash = exception.getHash();
-      if (collapsed[hash]) {
-        collapsed[hash].count++;
-      } else {
-        collapsed[hash] = { exception: exception, count: 1 };
-      }
-    });
-    this.collapsed = [...Object.values(collapsed)];
+  findException(hash) {
+    return this.exceptions.find(elem => elem.hash == hash);
   }
 
   addException(exception) {
-    this.exceptions.push(exception);
+    const hash = exception.getHash();
+    let found = this.findException(hash);
+    if (found) {
+      found.count += exception.count;
+    } else {
+      this.exceptions.push({ exception: exception, count: exception.count, hash: hash });
+    }
   }
 
   async renderDetails() {
@@ -1313,20 +1364,20 @@ class Mod {
       await maybeTakeABreak();
     }
 
-    if (this.collapsed.length > 0) {
+    if (this.exceptions.length > 0) {
       parent.appendChild(newElement(hr()));
       parent.appendChild(newElement(heading("Exceptions", 2, "search-title")))
       let container = newElement(div());
       parent.lastChild.appendChild(await searchBar(container));
       parent.appendChild(container);
-      for (let i = 0; i < this.collapsed.length; i++) {
-        const exception = this.collapsed[i];
+      for (let i = 0; i < this.exceptions.length; i++) {
+        const exception = this.exceptions[i];
         const text = exception.exception.render(exception.count);
         if (!text) continue;
         let elem = newElement(text);
         if (elem)
           container.appendChild(elem)
-        setProgress(i / this.collapsed.length * 100);
+        setProgress(i / this.exceptions.length * 100);
         await maybeTakeABreak();
       }
     }
@@ -1351,6 +1402,7 @@ class Exception {
   }
 
   getHash() {
+  let slug = (this.type + this.eventType + this.error + this.lines.map(line => line.getHash()).join("") + this.extra).toString();
     return (this.type + this.eventType + this.error + this.lines.map(line => line.getHash()).join("") + this.extra).toString().hashCode();
   }
 
@@ -1388,7 +1440,6 @@ class Exception {
             /(?<catalog>.+?)_(assets_all|unitybuiltinshaders).bundle/,
             (groups) => {
               let {found, score, reason} = game.findModByCatalog(groups.catalog);
-              console.log(groups.catalog);
               if (found) {
                 this.modReasons[found.folder] = { reason, score };
                 mod = found;
@@ -1869,42 +1920,50 @@ function match(line, re, callback) {
   return match != null;
 }
 
-let lineCounter = 0;
-let totalLines = 0;
 let currentLines = 0;
 
 function setupProgressDisplay() {
   return {
-    lines_analysed: () => `${currentLines} / ${totalLines}`,
+    lines_analysed: () => `${currentLines}`,
     mods: () => game.mods.length,
-    exceptions: () => game.exceptions.length,
+    exceptions: () => game.exceptions.reduce(reduceExceptions, 0),
     suggestions_found: () => Object.keys(game.suggestions).length,
     levels_loaded: () => game.levels.length,
     areas_traversed: () =>
-      game.areas.map((list) => list.length - 2).reduce((acc, a) => acc + a, 0),
+      game.areas.map((list) => list.length - 2).reduce(reduceNumber, 0),
   };
 }
 
+function reduceNumber(acc, x) { return acc + x }
+function reduceExceptions(acc, x) { return acc + x.count }
+
 function refreshProgress(rows) {
-  containers.details.innerHTML = objectToTable(rows, "Progress", true, false);
+  for (let [key, value] of Object.entries(rows))
+    containers.details.querySelector(`#td-${key}`).innerHTML = value();
 }
 
-async function parse(lines) {
+async function parse(file) {
   let state = "default";
   game = new Game();
   let exception = null;
   let prev = "";
+  let nextPrev = "";
   let skills = [];
 
   let rows = setupProgressDisplay();
+  containers.details.innerHTML = objectToTable(rows, "Progress", true);
 
-  let count = lines.length;
-  totalLines = count;
   let i = 0;
-  for (let line of lines) {
-    line = line.replace(/\//g, "\\");
-    await maybeTakeABreak();
-    line = line.replace(XML_REGEX, "");
+  let lastLineTime = Date.now();
+  let speed = 0;
+  let lastStatus = 0;
+
+  async function parseLine(line, index, size) {
+    line = (line
+      .replace(/^\d+-\d+-\d+T\d+:\d+:\d+\.\d+(: [A-Z]+ .+? *: | \d+:\d+:\d+.\d+\s+\d+\s+\d+ [A-Z] Unity\s+: )/g, "")
+      .replace(/\//g, "\\")
+      .replace(XML_REGEX, ""));
+
     match(line, LOG_REGEX, (groups) => {
       if (game.metadata === undefined) {
         game.startMetadata = groups;
@@ -1919,6 +1978,24 @@ async function parse(lines) {
       /^\d+-\d+-\d+T\d+:\d+:\d+.\d+Z (?<line>.+)/,
       (groups) => (line = groups.line)
     );
+
+    prev = nextPrev;
+    nextPrev = line;
+    i++;
+    currentLines = i;
+    if (i % 10 == 0) {
+      let lineTime = Date.now();
+      speed = (10 / ((lineTime - lastLineTime))) * 1000;
+      lastLineTime = lineTime;
+    }
+    let progress = Math.round(index / size * 100);
+    if (progress != lastStatus) {
+      lastStatus = progress
+      setStatus(`Reading file: ${progress}%`);
+      refreshProgress(rows);
+    }
+    setProgress((index / size) * PROGRESS_READ);
+    // await maybeTakeABreak();
 
     // determine state changes
     if (state == "exception") {
@@ -1941,7 +2018,7 @@ async function parse(lines) {
 
     if (state == "system-info" && !match(line, /^\[.+?\]\s*:/)) state = "default";
 
-    match(
+    if (match(
       line,
       /^(Exception in (ThunderScript )?Update Loop: |.+ )?(System\.)?(?<type>(\w+\.)*\w*Exception)(\s*: (?<error>.+?))?( assembly:.+)?$/,
       (groups) => {
@@ -1956,12 +2033,12 @@ async function parse(lines) {
         state = "exception";
         exception = new Exception(groups.type, groups.error);
       }
-    );
+    )) return;
 
     // Match game pool generation finishing and the loading being 'complete'
-    match(line, /.*Complete pool generation finished in: \d+\.\d+ sec/, () => {
+    if (match(line, /.*Complete pool generation finished in: \d+\.\d+ sec/, () => {
       game.begin();
-    });
+    })) return;
 
     switch (state) {
       case "skills":
@@ -1981,22 +2058,27 @@ async function parse(lines) {
         });
         break;
       case "default":
-        matchSystemInfo(line);
+        if (matchSystemInfo(line)) return;
+
+        // Match load time events for pie chart
+        match(line, /(?<process>.+) in (?<time>[\d\.]+) sec/, (groups) =>
+          game.addTime(groups.process, parseFloat(groups.time))
+        );
 
         // Match old (< U12.3) mod detection
-        match(
+        if (match(
           line,
           /Added valid mod folder: (?<folder>.+). Mod: (?<mod>.+)/,
           ({ folder, mod }) => {
             game.findOrCreateMod(mod, folder);
           }
-        );
+        )) return;
         // Match mod assembly
         // [ModManager][Assembly] - Loading assembly: Wand/WandModule.dll
 
-        match(
+        if (match(
           line,
-          /\[ModManager\]\[Assembly\]((\[(?<mod>.+?)\])| -) Loading [Aa]ssembly: (?<path>([^\\]+\\)+)(?<dll>.+\.dll)/,
+          /\[ModManager\]\[Assembly\]((\[(?<mod>.+?)\])| -) Loading [Aa]ssembly: ?(?<path>([^\\]+\\)+)(?<dll>.+\.dll)/,
           ({ mod, path, dll }) => {
             let folder = path.split("\\")[0];
             let {found} = game.findOrCreateMod(mod, folder);
@@ -2006,20 +2088,20 @@ async function parse(lines) {
             });
             found?.tags.add("dll");
           }
-        );
+        )) return;
 
         // Match mod debug symbols
-        match(
+        if (match(
           line,
           /\[ModManager\]\[Assembly\]\[(?<mod>.+?)\] Loading Assembly Debug Symbols: (?<path>([^\\]+\\)+)(?<dll>.+\.pdb)/,
           ({ mod, path, dll }) => {
             let folder = path.split("\\")[0];
             game.findOrCreateMod(mod, folder).found.tags.add("pdb");
           }
-        );
+        )) return;
 
         // Match mod catalog json file
-        match(
+        if (match(
           line,
           /\[ModManager\]\[Addressable\]\[(?<mod>.+?)\] - Loading Addressable Assets Catalog: .*(?<catalog>catalog_.+\.json)/,
           ({ mod, catalog }) => {
@@ -2027,10 +2109,10 @@ async function parse(lines) {
               catalog: catalog,
             });
           }
-        );
+        )) return;
 
         // Match default data being overridden
-        match(
+        if (match(
           line,
           /\[ModManager\]\[Catalog\]\[(?<mod>.+?)\] Overriding: \[(?<type>.+)\]\[(?<className>.+)\]\[(?<id>.+)\] with: (?<path>([^\\]+\\)+)(?<file>.+\.json)/,
           ({ mod, type, className, id, path, file }) => {
@@ -2043,9 +2125,9 @@ async function parse(lines) {
               file: file,
             });
           }
-        );
+        )) return;
 
-        match(
+        if (match(
           line,
           /\[JSON\]\[(?<mod>.+)\] - Loaded file: (?<path>.+)\\(?<file>[^\\]+).json/,
           (groups) => {
@@ -2054,10 +2136,10 @@ async function parse(lines) {
               path: groups.path.replace(/\\/g, "/"),
             });
           }
-        );
+        )) return;
 
         // Match invalid game version
-        match(
+        if (match(
           line,
           /\[ModManager\] - Mod (?<mod>.+) for \((?<version>.+)\) is not compatible with current minimum mod version (?<minVersion>.+)/,
           (groups) => {
@@ -2073,10 +2155,10 @@ async function parse(lines) {
               )}, but the game is version ${code(groups.minVersion)}.`
             );
           }
-        );
+        )) return;
 
         // Match addresses not found
-        match(
+        if (match(
           line,
           /Address \[(?<address>.+)\] not found for \[(?<id>.+) (\((?<type>.+)\))?\]/,
           (groups) => {
@@ -2092,10 +2174,10 @@ async function parse(lines) {
             )
               game.missingData.push(entry);
           }
-        );
+        )) return;
 
         // Match JSON files that cannot be read due to missing assemblies.
-        match(
+        if (match(
           prev,
           /LoadJson : Cannot read json file .+StreamingAssets\\Mods\\(?<path>([^\\]+\\)+)(?<json>.+\.json) ?\((?<error>.+)\)/,
           ({ path, json }) => {
@@ -2115,10 +2197,10 @@ async function parse(lines) {
               }
             );
           }
-        );
+        )) return;
 
-        match(
-          prev,
+        if (match(
+          line,
           /EffectData: (?<id>.+?)'s effectModuleMesh meshAddress is null or empty. Has it not been set\?/,
           (groups) => {
             let mod = game.fuzzyFindMod(groups.id).found;
@@ -2133,10 +2215,10 @@ async function parse(lines) {
                 type: "EffectModuleMesh",
               });
           }
-        );
+        )) return;
 
-        match(
-          prev,
+        if (match(
+          line,
           /EffectData: (?<id>.+?)'s effectModuleParticle: (?<address>.+?) has a null effectParticlePrefab. Did it not get loaded\?/,
           (groups) => {
             let parts = groups.address.split(".");
@@ -2158,16 +2240,13 @@ async function parse(lines) {
                 type: "EffectModuleParticle",
               });
           }
-        );
+        )) return;
 
-        match(
-          prev,
+        if (match(
+          line,
           /EffectData: (?<id>.+?)'s effectModuleVfx does not have a valid vfxAddress or meshAddress\./,
           (groups) => {
-            console.log(groups.id);
             let mod = game.fuzzyFindMod(groups.id).found;
-            console.log(game.mods);
-            console.log(mod);
             if (mod)
               mod.loadErrors.push({
                 id: groups.id,
@@ -2179,20 +2258,20 @@ async function parse(lines) {
                 type: "EffectModuleVfx",
               });
           }
-        );
+        )) return;
 
         // Match loading thunderscripts
-        match(
+        if (match(
           line,
           /\[ModManager\]\[ThunderScript\] - Loaded ThunderScript: (?<namespace>[^.]+)\.(?<class>.+) on mod: (?<name>.+) in assembly: (?<assembly>.+), Version=.+/,
           (groups) => {
             let mod = game.findModByName(groups.name).found;
             mod.namespaces.add(groups.namespace);
           }
-        );
+        )) return;
 
         // Match addressable content build bugs
-        match(
+        if (match(
           line,
           /Cannot recognize file type for entry located at '(?<path>.+)'. Asset import failed for using an unsupported file type./,
           (groups) => {
@@ -2203,17 +2282,12 @@ async function parse(lines) {
               "error"
             );
           }
-        );
-
-        // Match load time events for pie chart
-        match(line, /(?<process>.+) in (?<time>[\d\.]+) sec/, (groups) =>
-          game.addTime(groups.process, parseFloat(groups.time))
-        );
+        )) return;
 
         // Match level load events
-        match(
+        if (match(
           line,
-          /Load level (?<level>.+?)( using mode (?<mode>.+))?$/,
+          /^Load level (?<level>.+?)( using mode (?<mode>.+))?$/,
           (groups) => {
             game.addEvent(`Level ${bold(groups.level)} loading...`, undefined, {
               level: groups.level,
@@ -2224,18 +2298,18 @@ async function parse(lines) {
             game.lastLevel = groups.level;
             game.lastArea = null;
           }
-        );
-        match(line, /^Option: (?<name>.+): (?<value>.+)/, (groups) => {
+        )) return;
+        if (match(line, /^Option: (?<name>.+): (?<value>.+)/, (groups) => {
           game.lastEvent.props[groups.name] = renderValue(groups.value);
-        });
-        match(line, /^Module: (?<name>.+)/, (groups) => {
+        })) return;
+        if (match(line, /^Module: (?<name>.+)/, (groups) => {
           if (game.lastEvent.props.modules === undefined) {
             game.lastEvent.props.modules = code(groups.name);
           } else {
             game.lastEvent.props.modules += "<br>" + code(groups.name);
           }
-        });
-        match(
+        })) return;
+        if (match(
           line,
           /^Dungeon generation success with (?<retries>\d+) area retry. Used seed:(?<seed>-?\d+)/,
           (groups) => {
@@ -2245,8 +2319,8 @@ async function parse(lines) {
               groups.retries
             );
           }
-        );
-        match(
+        )) return;
+        if (match(
           line,
           /Total time to load (?<level>.+): (?<time>.+) sec/,
           (groups) => {
@@ -2259,18 +2333,18 @@ async function parse(lines) {
               }
             );
           }
-        );
+        )) return;
 
-        match(line, /^\[system info\]\s*$/, _ => {
+        if (match(line, /^\[system info\]\s*$/, _ => {
           state = "system-info";
-        });
+        })) return;
 
-        match(line, /Loaded player skills:/, (_) => {
+        if (match(line, /Loaded player skills:/, (_) => {
           state = "skills";
           skills = [];
-        });
+        })) return;
 
-        match(
+        if (match(
           line,
           /Player Enter : (?<enter>.+) And Leave : (?<exit>.+)/,
           (groups) => {
@@ -2281,33 +2355,33 @@ async function parse(lines) {
             );
             game.addAreaTransition(groups.exit, groups.enter);
           }
-        );
+        )) return;
 
         // Match missing damagers
-        match(
+        if (match(
           line,
           /Tried to damage with ColliderGroup \[(?<item>.+?) \(ThunderRoad.Item\)\\(?<group>.+?) \(ThunderRoad.ColliderGroup\)\\(?<collider>.+?) \(UnityEngine.+?Collider\)\] but no damagers were found!/,
           (groups) => {
             game.addMissingDamager(groups.item, groups.group, groups.collider);
           }
-        );
+        )) return;
 
         // Match game load events
-        match(line, /Game started in (?<time>.+) sec/, (groups) => {
+        if (match(line, /Game started in (?<time>.+) sec/, (groups) => {
           game.addEvent(`Game starting`, undefined, {
             startup_time: `${groups.time}s`,
           });
-        });
+        })) return;
 
         // Match player possession
-        match(line, /Player take possession of : (?<creature>.+)/, (groups) => {
+        if (match(line, /Player take possession of : (?<creature>.+)/, (groups) => {
           game.addEvent("Player possessed Creature", undefined, {
             creature: groups.creature,
           });
-        });
+        })) return;
 
         // Match inventory events
-        match(
+        if (match(
           line,
           /Item (?<id>.+) (?<action>added|removed) (to players container|from player inventory) (?<inventory>.+)/,
           (groups) => {
@@ -2330,29 +2404,29 @@ async function parse(lines) {
               "color-inventory"
             );
           }
-        );
+        )) return;
 
         // Match hard crash
-        match(line, /Crash!!!/, () => {
+        if (match(line, /Crash!!!/, () => {
           game.addEvent(
             "Hard crash!",
             "Check the log for stack traces.<br>This may an underlying problem with your PC, or GPU drivers.",
             undefined,
             "color-fatal"
           );
-        });
+        })) return;
 
         // Match out of RAM
-        match(line, /Could not allocate memory: System out of memory!/, () => {
+        if (match(line, /Could not allocate memory: System out of memory!/, () => {
           game.addEvent(
             "System out of memory!",
             "You may either have too many other programs open, or you might not have enough RAM on your PC. It's recommended to have at least 16GB total RAM for Blade and Sorcery. If you have enough RAM, this problem has also been solved in the past by re-installing GPU drivers.",
             undefined,
             "color-fatal"
           );
-        });
+        })) return;
 
-        match(
+        if (match(
           line,
           /Trying to allocate: (?<bytes>\d+)B with \d+ alignment. MemoryLabel: (?<label>.+)/,
           (groups) => {
@@ -2364,7 +2438,8 @@ async function parse(lines) {
               game.lastEvent.props.label = groups.label;
             }
           }
-        );
+        )) return;
+
 
         break;
       case "exception":
@@ -2400,7 +2475,6 @@ async function parse(lines) {
             if (
               !groups.location.match(
                 UNMODDED_REGEX
-                
               )
             ) {
               let match = groups.location.match(/^(?<namespace>(\w|\+)+)\./);
@@ -2415,84 +2489,72 @@ async function parse(lines) {
         );
         break;
     }
-    prev = line;
-    i++;
-    currentLines = i;
-    setStatus(`Reading file: ${Math.round(i / count * 100)}%`);
-    setProgress(Math.round((i / count) * PROGRESS_READ))
-    refreshProgress(rows);
   }
+
+  await readFileLines(file, parseLine)
 
   startTime = Date.now() - 5000;
 
+  game.info.parse_time = (Date.now() - parseStart) / 1000;
+  parseStart = Date.now();
   game.begin();
   await game.finish();
+  game.info.process_time = (Date.now() - parseStart) / 1000;
 }
 
 function matchSystemInfo(line) {
-  line = line.replace(/\//g, "\\");
-  match(line, /Platform \[Android\] initialized/, groups => {
-    game.system.platform = "Nomad";
-  })
-  match(line, /Mono path\[0\] = '(?<path>.+)'$/, (groups) => {
+  if (match(line, /^Mono path\[0\] = '(?<path>.+)'$/, (groups) => {
     game.system.game_directory = groups.path.replace(/\\/g, "/");
-  });
-  match(line, /Mono path\[0\] = '.+(Oculus)?\\Software.+/i, () => {
+  })) return true;
+  if (match(line, /^Mono path\[0\] = '.+(Oculus)?\\Software.+/i, () => {
     game.system.platform = "Oculus";
-  });
-  match(line, /Mono path\[0\] = '.+\\steamapps\\common.+/i, () => {
+  })) return true;
+  if (match(line, /^Mono path\[0\] = '.+\\steamapps\\common.+/i, () => {
     game.system.platform = "Steam";
-  });
-  match(line, /Mono path\[0\] = '.+(Downloads|Desktop).*\\steamapps\\common.+/i, () => {
+  })) return true;
+  if (match(line, /^Mono path\[0\] = '.+(Downloads|Desktop).*\\steamapps\\common.+/i, () => {
     game.system.platform = null;
-  });
-  match(line, /Successfully loaded content catalog at path (?<path>.+)'$/, (groups) => {
+  })) return true;
+  if (match(line, /^Successfully loaded content catalog at path (?<path>.+)'$/, (groups) => {
     game.system.game_directory = groups.path.replace(/\\/g, "/");
-  });
-  match(line, /Successfully loaded content catalog at path .+(Oculus)?\\Software.+/i, () => {
+  })) return true;
+  if (match(line, /^Successfully loaded content catalog at path .+(Oculus)?\\Software.+/i, () => {
     game.system.platform = "Oculus";
-  });
-  match(line, /Successfully loaded content catalog at path .+\\steamapps\\common.+/i, () => {
+  })) return true;
+  if (match(line, /^Successfully loaded content catalog at path .+\\steamapps\\common.+/i, () => {
     game.system.platform = "Steam";
-  });
-  match(line, /Successfully loaded content catalog at path .+(Downloads|Desktop).*\\steamapps\\common.+/i, () => {
+  })) return true;
+  if (match(line, /^Successfully loaded content catalog at path .+(Downloads|Desktop).*\\steamapps\\common.+/i, () => {
     game.system.platform = null;
-  });
-  match(
-    line,
-    /\(Filename: (?<filename>.+)? Line: (?<line>\d+)?\)/,
-    (groups) => {
-      this.filename = groups.filename;
-      this.line = groups.line;
-    }
-  );
-  match(line, /Game version: (?<version>.+)/, (groups) => {
+  })) return true;
+  if (match(line, /^Game version: (?<version>.+)/, (groups) => {
     game.system.version = groups.version;
-  });
-  match(line, /Initialize engine version: (?<version>.+)/, (groups) => {
+  })) return true;
+  if (match(line, /^Initialize engine version: (?<version>.+)/, (groups) => {
     game.system.build_number = groups.version;
-  });
-  match(line, /Device model : (?<model>.+)/, (groups) => {
+  })) return true;
+  if (match(line, /^Device model : (?<model>.+)/, (groups) => {
     game.system.hmd_model = groups.model;
     if (groups.model == "Miramar") game.system.hmd_model += " (Quest 2)";
-  });
-  match(line, /HeadDevice: (?<model>.+)/, (groups) => {
+  })) return true;
+  if (match(line, /^HeadDevice: (?<model>.+)/, (groups) => {
     game.system.hmd_model = groups.model;
     if (groups.model == "Miramar") game.system.hmd_model += " (Quest 2)";
-  });
-  match(line, /LoadedDeviceName : (?<device>.+)/, (groups) => {
+  })) return true;
+  if (match(line, /^LoadedDeviceName : (?<device>.+)/, (groups) => {
     game.system.hmd = groups.device;
-  });
-  match(line, /Loader: (?<device>.+) \|/, (groups) => {
+  })) return true;
+  if (match(line, /^Loader: (?<device>.+) \|/, (groups) => {
     game.system.hmd = groups.device;
-  });
-  match(line, / +Renderer: +(?<gpu>.+)( \(ID=.+\))/, (groups) => {
+  })) return true;
+  if (match(line, /^ +Renderer: +(?<gpu>.+)( \(ID=.+\))/, (groups) => {
     game.system.gpu = groups.gpu;
-  });
-  match(line, / +VRAM: +(?<vram>\d+ MB)/, (groups) => {
+  })) return true;
+  if (match(line, /^ +VRAM: +(?<vram>\d+ MB)/, (groups) => {
     game.system.gpu_vram = groups.vram;
-  });
-  match(line, / +Driver: +(?<driver>.+)/, (groups) => {
+  })) return true;
+  if (match(line, /^ +Driver: +(?<driver>.+)/, (groups) => {
     game.system.gpu_driver = groups.driver;
-  });
+  })) return true;
+  return false;
 }

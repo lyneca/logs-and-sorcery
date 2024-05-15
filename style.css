@@ -158,6 +158,47 @@ li {
     font-family: "Fira Code", monospace;
 }
 
+.explanation {
+    width: 100%;
+    justify-content: stretch;
+    display: flex;
+}
+
+.explanation span {
+    flex-grow: 1;
+}
+
+.time-container {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.time-description {
+    display: flex;
+    justify-content: space-around;
+}
+
+.time-block {
+    display: inline-block;
+    height: 20px;
+    min-width: 10px;
+    padding: 5px;
+    color: rgba(0, 0, 0, 0.5);
+    padding-left: 10px;
+    font-family: "Fira Code", monospace;
+}
+
+.time-block:first-child {
+    border-top-left-radius: 10px;
+    border-bottom-left-radius: 10px;
+}
+
+.time-block:last-child {
+    border-top-right-radius: 10px;
+    border-bottom-right-radius: 10px;
+}
+
 .progress {
     display: block;
     margin: 10px 0;
