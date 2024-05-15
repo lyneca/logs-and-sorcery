@@ -566,6 +566,10 @@ function bold(string) {
   return `<strong>${string}</strong>`;
 }
 
+function safe(unsafe) {
+    return unsafe.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+}
+
 function icon(name, tooltip, color) {
   return `<i class="pad icofont-${name}"${
     color ? ` style="color: ${color}` : ""
@@ -2406,6 +2410,11 @@ async function parse(file) {
           }
         )) return;
 
+        // Match pooled particles being destroyed
+        if (match(line, /Effect (?<name>.+) has been destroyed but it should not!/, (groups) => {
+          game.addEvent(`Pooled effect was destroyed.`, "", { id: groups.name }, "color-warning");
+        })) return;
+
         // Match hard crash
         if (match(line, /Crash!!!/, () => {
           game.addEvent(
@@ -2439,8 +2448,6 @@ async function parse(file) {
             }
           }
         )) return;
-
-
         break;
       case "exception":
         match(
