@@ -247,7 +247,7 @@ async function readFileText(file) {
   });
 }
 
-const SLICE_SIZE = 256;
+const SLICE_SIZE = 4096 * 2;
 const BATCH_SIZE = 1;
 
 async function readFileLines(file, callback) {
@@ -1963,11 +1963,9 @@ async function parse(file) {
   containers.details.innerHTML = objectToTable(rows, "Progress", true);
 
   let i = 0;
-  let lastLineTime = Date.now();
-  let speed = 0;
   let lastStatus = 0;
 
-  async function parseLine(line, index, size) {
+  function parseLine(line, index, size) {
     line = (line
       .replace(/^\d+-\d+-\d+T\d+:\d+:\d+\.\d+(: [A-Z]+ .+? *: | \d+:\d+:\d+.\d+\s+\d+\s+\d+ [A-Z] Unity\s+: )/g, "")
       .replace(/\//g, "\\")
@@ -1992,11 +1990,6 @@ async function parse(file) {
     nextPrev = line;
     i++;
     currentLines = i;
-    if (i % 10 == 0) {
-      let lineTime = Date.now();
-      speed = (10 / ((lineTime - lastLineTime))) * 1000;
-      lastLineTime = lineTime;
-    }
     let progress = Math.round(index / size * 100);
     if (progress != lastStatus) {
       lastStatus = progress
@@ -2004,7 +1997,6 @@ async function parse(file) {
       refreshProgress(rows);
     }
     setProgress((index / size) * PROGRESS_READ);
-    // await maybeTakeABreak();
 
     // determine state changes
     if (state == "exception") {
