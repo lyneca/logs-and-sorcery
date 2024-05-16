@@ -291,10 +291,15 @@ function setStatus(text) {
   statusDiv.innerText = text + (text.endsWith('%') ? '' : "...");
 }
 
+let isSmooth = true;
+
 function setProgress(amount, force = false) {
   if (amount == 0) progressBar.style.opacity = 1;
   if (amount == 100) progressBar.style.opacity = 0;
-  progressBar.style.transition = force ? "none" : "max-width 0.2s ease-in-out, opacity 0.2s ease-in-out";
+  if (force != isSmooth) {
+    progressBar.style.transition = force ? "none" : "opacity 0.2s ease-in-out";
+    isSmooth = force;
+  }
   progressBar.style.maxWidth = amount + '%';
 }
 

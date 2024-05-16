@@ -215,7 +215,7 @@ li {
     background-color: var(--faded_green);
     max-width: 0%;
     height: 100%;
-    transition: max-width 0.2s ease-in-out, opacity 0.2s ease-in-out;
+    /* transition: max-width 0.2s ease-in-out, opacity 0.2s ease-in-out; */
 }
 
 input[type=text] {
@@ -364,6 +364,7 @@ pre#directory, pre.directory {
     cursor: pointer;
     user-select: none;
     text-align: left;
+    white-space: nowrap;
 }
 
 .mod:hover {
