@@ -94,9 +94,16 @@ const SUGGESTIONS = {
     title:
       "Ensure your mods are up to date, or remove ones that aren't yet updated.",
     description:
-      "One of your mods attempted to run code that doesn't exist in the version of the game you are running.<br>" +
+      "One or more of your mods attempted to run code that doesn't exist in the version of the game you are running.<br>" +
       "This may be because a minor version update broke it - e.g. if the mod worked on 12.2, but you updated to 12.3.",
     cols: ["mods", "method"],
+  },
+  "broken-json": {
+    title: "Fix syntax errors in your JSON file(s).",
+    description:
+    "One or more of your mods broke the game's JSON parser (likely due to a syntax error). If this is your mod, or if you've made changes to one of these JSON files, make sure they are valid.<br>" +
+     `You can paste your JSON file into <a href="https://jsonlint.com/">jsonlint.com</a> to debug syntax errors.`,
+     cols: ["mod", "json_file", "error"]
   },
   pirated: {
     title:
@@ -624,6 +631,10 @@ function createDiv(classes, args, contents){
 
 function div(string, className) {
   return `<div${className ? ' class="' + className + '"' : ""}>${string ?? ""}</div>`;
+}
+
+function pre(string, className) {
+  return `<pre${className ? ' class="' + className + '"' : ""}>${string ?? ""}</pre>`;
 }
 
 function p(string, className) {
@@ -1239,6 +1250,10 @@ class Mod {
     this.overrides = [];
     this.json = [];
     this.tags = new Set();
+  }
+
+  addInvalidJson(path, json, error) {
+    this.loadErrors.push({id: json, error: "Could not parse JSON file: <br>" + div(error, "json") })
   }
 
   async complete() {
@@ -2174,8 +2189,8 @@ async function parse(file) {
         if (match(
           prev,
           /LoadJson : Cannot read json file .+StreamingAssets\\Mods\\(?<path>([^\\]+\\)+)(?<json>.+\.json) ?\((?<error>.+)\)/,
-          ({ path, json }) => {
-            match(
+          ({ path, json, error }) => {
+            if (!match(
               line,
               /Could not load assembly '(?<assembly>.+)'\./,
               ({ assembly }) => {
@@ -2189,7 +2204,15 @@ async function parse(file) {
                   possible_missing_dll_name: code(assembly + ".dll"),
                 });
               }
-            );
+            )) {
+              let mod = game.findOrCreateMod(path.split(/\\/)[0]).found;
+              mod.addInvalidJson(path, json, error);
+                game.addSuggestion("broken-json", {
+                  mod: mod.name,
+                  json_file: code(json),
+                  error: div(error, "json")
+                });
+            }
           }
         )) return;
 
@@ -2201,12 +2224,12 @@ async function parse(file) {
             if (mod)
               mod?.loadErrors.push({
                 id: groups.id,
-                type: "EffectModuleMesh",
+                error: `An ${code("EffectModuleMesh")} in this effect has an invalid or null ${code("meshAddress")}.`,
               });
             else
               game?.loadErrors.push({
                 id: groups.id,
-                type: "EffectModuleMesh",
+                error: `An ${code("EffectModuleMesh")} in this effect has an invalid or null ${code("meshAddress")}.`,
               });
           }
         )) return;
@@ -2224,14 +2247,12 @@ async function parse(file) {
             if (mod)
               mod.loadErrors.push({
                 id: groups.id,
-                address: groups.address,
-                type: "EffectModuleParticle",
+                error: `Could not find a prefab with an attached ${code("EffectParticle")} at address ${code(groups.address, "padded")} for an ${code("EffectModuleParticle")} in this effect.`,
               });
             else
               game.loadErrors.push({
                 id: groups.id,
-                address: groups.address,
-                type: "EffectModuleParticle",
+                error: `Could not find a prefab with an attached ${code("EffectParticle")} at address ${code(groups.address, "padded")} for an ${code("EffectModuleParticle")} in this effect.`,
               });
           }
         )) return;
@@ -2244,12 +2265,12 @@ async function parse(file) {
             if (mod)
               mod.loadErrors.push({
                 id: groups.id,
-                type: "EffectModuleVfx",
+                error: `An ${code("EffectModuleVfx")} in this effect has an invalid ${code("vfxAddress")} or ${code("meshAddress")}.`,
               });
             else
               game.loadErrors.push({
                 id: groups.id,
-                type: "EffectModuleVfx",
+                error: `An ${code("EffectModuleVfx")} in this effect has an invalid ${code("vfxAddress")} or ${code("meshAddress")}.`,
               });
           }
         )) return;
