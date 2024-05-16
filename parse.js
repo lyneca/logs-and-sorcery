@@ -1,5 +1,7 @@
 // https://coolors.co/333344-45cb85-ff4f79-1e91d6-f4ac45
 
+const version = "2.2.0";
+
 const containers = {
   mods: document.querySelector("#mod-list"),
   details: document.querySelector("#mod-details"),
@@ -1084,7 +1086,7 @@ class Game {
 
   renderParseInfo() {
     return (
-      p(`Log file parsed in ${this.info.total_time}s.`, "suggestion-text") +
+      p(`Version ${version}. Log file parsed in ${this.info.total_time}s.`, "suggestion-text") +
       div(
         this.renderTime(
           "Parse",
