@@ -1,6 +1,6 @@
 // https://coolors.co/333344-45cb85-ff4f79-1e91d6-f4ac45
 
-const VERSION = "2.3.0";
+const VERSION = "2.3.1";
 
 const containers = {
   mods: document.querySelector("#mod-list"),
@@ -1293,7 +1293,7 @@ class Mod {
   }
 
   sortKey() {
-    let value = this.loadErrorCount() + this.exceptionCount();
+    let value = this.loadErrors.length + this.missingDLLs.length + this.missingData.length + Object.values(this.exceptions).reduce(reduceExceptions, 0);
     return value;
   }
 

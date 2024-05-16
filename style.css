@@ -709,6 +709,7 @@ th {
 }
 td {
     padding: 10px;
+    vertical-align: top;
 }
 p {
     margin: 0;
@@ -735,6 +736,10 @@ div.json {
     box-shadow: 0 0 5px 5px rgba(0, 0, 0, 0.1) inset;
     display: inline-block;
     background-color: rgba(0, 0, 0, 0.3);
+}
+
+td div.json:first-child:last-child {
+    margin: 0;
 }
 
 .notable {
