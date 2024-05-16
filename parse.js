@@ -1,6 +1,6 @@
 // https://coolors.co/333344-45cb85-ff4f79-1e91d6-f4ac45
 
-const version = "2.2.0";
+const VERSION = "2.2.0";
 
 const containers = {
   mods: document.querySelector("#mod-list"),
@@ -249,7 +249,8 @@ async function readFileText(file) {
   });
 }
 
-const SLICE_SIZE = 4096 * 2;
+const SPEED = 8;
+const SLICE_SIZE = Math.pow(2, (SPEED + 9));
 const BATCH_SIZE = 1;
 
 async function readFileLines(file, callback) {
@@ -262,20 +263,10 @@ async function readFileLines(file, callback) {
     for (let i = 0; i < slices.length - 1; i++) {
       let part = slices[i];
       let line = leftover + part;
-      if (BATCH_SIZE > 1) {
-        slices.push(line);
-        if (slices.length == BATCH_SIZE) {
-          for (let each of slices) await callback(each, index, file.size);
-          slices.length = 0;
-        }
-      } else {
-        await callback(line, index, file.size);
-      }
+      await callback(line, index, file.size);
 
       leftover = "";
     }
-    if (BATCH_SIZE > 1)
-      for (let each of slices) await callback(each, index, file.size);
     leftover = slices[slices.length - 1];
     index += SLICE_SIZE;
   }
@@ -1086,7 +1077,7 @@ class Game {
 
   renderParseInfo() {
     return (
-      p(`Version ${version}. Log file parsed in ${this.info.total_time}s.`, "suggestion-text") +
+      p(`Version ${VERSION}. Log file parsed in ${this.info.total_time}s at speed ${SPEED}.`, "suggestion-text") +
       div(
         this.renderTime(
           "Parse",
@@ -1967,7 +1958,7 @@ async function parse(file) {
   let i = 0;
   let lastStatus = 0;
 
-  function parseLine(line, index, size) {
+  async function parseLine(line, index, size) {
     line = (line
       .replace(/^\d+-\d+-\d+T\d+:\d+:\d+\.\d+(: [A-Z]+ .+? *: | \d+:\d+:\d+.\d+\s+\d+\s+\d+ [A-Z] Unity\s+: )/g, "")
       .replace(/\//g, "\\")
