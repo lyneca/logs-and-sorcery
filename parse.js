@@ -1,6 +1,6 @@
 // https://coolors.co/333344-45cb85-ff4f79-1e91d6-f4ac45
 
-const VERSION = "2.3.2";
+const VERSION = "2.3.3";
 
 const containers = {
   mods: document.querySelector("#mod-list"),
@@ -1883,7 +1883,7 @@ class ExceptionLine {
         .slice(funcPart.length - 2)
         .join(`<span class="dim"> > </span>`);
       if (this.filename && this.line >= 0)
-        funcPart += `<span class="preview-filename"><span class="dim"> ~ </span><span class="dim">${this.filename}:${this.line}</span></span>`;
+        funcPart += `<span class="preview-filename"><span class="dim"> ~ </span><span class="dim">${this.shortFileName()}:${this.line}</span></span>`;
       return `${funcPart}`;
     }
     return this.location;
@@ -1891,6 +1891,21 @@ class ExceptionLine {
 
   replaceArgTypes(arg) {
     return ARG_REPLACEMENTS[arg.toLowerCase()] ?? arg;
+  }
+
+  shortFileName() {
+    if (this.filename) {
+      let match = this.filename
+        .replace(/\\/g, "/")
+        .match(/(?<prefix>.+\/)(?<folder>.+?)\/(?<filename>.+?\.cs)$/)
+        ?.groups;
+      if (match) {
+        let { prefix, folder, filename } = match;
+        return `${folder ? folder + "/" : ""}${filename}`;
+      }
+      return this.filename;
+    }
+    return "";
   }
 
   renderFilename() {
@@ -1901,7 +1916,7 @@ class ExceptionLine {
         (_, name, version) => `<span class="dim">[${name} @ ${version}]</span> `
       )
       .replace(
-        "E:/Dev/BladeAndSorcery/",
+        "(E:/Dev|H:/Warpfrog)/(BladeAndSorcery|ThunderRoad)/",
         `<span class="dim">[ThunderRoad]</span> `
       )
       .replace(
