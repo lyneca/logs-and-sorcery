@@ -1,6 +1,6 @@
 // https://coolors.co/333344-45cb85-ff4f79-1e91d6-f4ac45
 
-const VERSION = "2.3.3";
+const VERSION = "2.3.4";
 
 const containers = {
   mods: document.querySelector("#mod-list"),
@@ -1418,7 +1418,8 @@ class Mod {
     }
 
     if (this.exceptions.length > 0) {
-      parent.appendChild(newElement(hr()));
+      if (parent.children.length > 0)
+        parent.appendChild(newElement(hr()));
       parent.appendChild(newElement(heading("Exceptions", 2, "search-title")))
       let container = newElement(div());
       parent.lastChild.appendChild(await searchBar(container));
