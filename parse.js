@@ -128,6 +128,22 @@ const SUGGESTIONS = {
     description:
       "One or more of your mods is not for this version of the game. They have not been loaded.",
   },
+  "duplicate-bundle": {
+    title: "Ensure you have not installed a mod multiple times.",
+    description: "Your log file suggests that you have installed a mod more than once. "
+    + "Make sure you haven't installed any extra copies, especially ones hiding inside other mod folders.",
+    cols: ["mod", "duplicate_bundle_found"]
+  },
+  "bundle-version": {
+    title: "Ensure your mods are built for the right version of Unity.",
+    description: () => `It looks like the following bundles have not been built for the correct version of Unity.`
+    + "<ul>"
+    + `<li>If this is your mod, ensure that you are exporting your mod from the correct Unity editor version; this log was generated from version <code>${game.system.unity_version}</code>.</li>`
+    + `<li>If you've attempted to update a mod by just changing the <code>manifest.json</code> file, you are out of luck and you will need to wait for the modder to update their mod.</li>`
+    + "</ul>",
+
+    cols: ["mod", "bundle"]
+  }
 };
 
 const EXCEPTIONS = {
@@ -314,6 +330,13 @@ function setProgress(amount, force = false) {
 function cleanup() {
   containers.mods.replaceChildren();
   containers.details.replaceChildren();
+}
+
+function renderFunc(stringOrFunc) {
+  if (typeof stringOrFunc == "function") {
+    return stringOrFunc();
+  }
+  return stringOrFunc;
 }
 
 async function loadFile(file) {
@@ -919,7 +942,7 @@ class Game {
       await mod.complete()
       await this.incrementProgress();
     }
-    setStatus(`Collapsing ${this.suggestions.length} suggestions`)
+    setStatus(`Collapsing ${[...Object.keys(this.suggestions)].length} suggestions`)
     await this.collapseSuggestions();
     containers.mods.appendChild(
       this.selector(
@@ -987,6 +1010,7 @@ class Game {
       this.suggestions[tag] = [];
     }
     if (reason) this.suggestions[tag].push(reason);
+    console.log(this.suggestions)
   }
 
   addException(exception) {
@@ -1007,6 +1031,10 @@ class Game {
 
   addEvent(text, description, props, color, metadata) {
     let event = new TimelineEvent(text, description, props, color, metadata ?? this.metadata);
+    if (this.lastEvent && event.getHash() == this.lastEvent.getHash()) {
+      this.lastEvent.count += 1;
+      return;
+    }
     this.lastEvent = event;
     this.lastException = null;
     this.timeline.push(event);
@@ -1137,15 +1165,15 @@ class Game {
   renderSuggestion(suggestion, reasons) {
     if (suggestion.cols) {
       return div(
-        heading(suggestion.title, 3) +
-          div(suggestion.description, "suggestion-text") +
+        heading(renderFunc(suggestion.title), 3) +
+          div(renderFunc(suggestion.description), "suggestion-text") +
           objectListToTable(reasons, suggestion.cols),
         "suggestion"
       );
     } else {
       return div(
-        heading(suggestion.title, 3) +
-          div(suggestion.description, "suggestion-text") +
+        heading(renderFunc(suggestion.title), 3) +
+          div(renderFunc(suggestion.description), "suggestion-text") +
           (reasons.length > 0 ? ul(reasons, "suggestion-reasons") : ""),
         "suggestion"
       );
@@ -1460,17 +1488,19 @@ class Exception {
         (groups) => {
           this.error = groups.prefix + code(groups.shortFolder);
           let mod;
-          match(
-            groups.bundle,
-            /(?<catalog>.+?)_(assets_all|unitybuiltinshaders).bundle/,
-            (groups) => {
-              let {found, score, reason} = game.findModByCatalog(groups.catalog);
-              if (found) {
-                this.modReasons[found.folder] = { reason, score };
-                mod = found;
+            match(
+              groups.bundle,
+              /(?<catalog>.+?)_(assets_all|unitybuiltinshaders).bundle/,
+              (groups) => {
+                let { found, score, reason } = game.findModByCatalog(
+                  groups.catalog
+                );
+                if (found) {
+                  this.modReasons[found.folder] = { reason, score };
+                  mod = found;
+                }
               }
-            }
-          );
+            );
           if (!mod) {
             let { found, score, reason } = game.findModByFolder(groups.folder);
             if (found) {
@@ -1482,6 +1512,21 @@ class Exception {
             bestMod = mod;
             foundMod = true;
           }
+          if (match(
+              this.prevLine,
+              /The AssetBundle '(?<bundle>.+?)' can't be loaded because (?<reason>.+)/,
+              ({ bundle, reason }) => {
+                switch (reason) {
+                  case "another AssetBundle with the same files is already loaded.":
+                    game.addSuggestion("duplicate-bundle", { mod: mod.name, duplicate_bundle_found: bundle })
+                    break;
+                  case "it was not built with the right version or build target.":
+                    game.addSuggestion("bundle-version", { mod: mod.name, bundle: bundle })
+                    break;
+                }
+              }
+            )
+          )
           mod?.invalidPaths.push(groups.bundle);
         }
       );
@@ -1913,6 +1958,7 @@ class TimelineEvent {
     this.props = props ?? {};
     this.eventType = "timeline";
     this.keywords = this.getKeywords();
+    this.count = 1;
   }
 
   getKeywords() {
@@ -1926,7 +1972,7 @@ class TimelineEvent {
   }
 
   getHash() {
-    return (this.text + this.color + this.description + this.props + this.eventType).toString().hashCode();
+    return (this.text + this.color + this.description + JSON.stringify(this.props) + this.eventType).toString().hashCode();
   }
 
   render() {
@@ -1954,7 +2000,10 @@ class TimelineEvent {
       }
     return `<div class="global event ${this.color ?? ""}" data-keywords="${this.keywords}">
               <div class="event-container">
-                    <div class="event-title">${span(this.text)}${this.metadata ? span(getTimestamp(this.metadata), "event-time") : ""}</div>
+                    <div class="event-title">${span((this.count > 1
+                        ? `<span class="fade count normal">${this.count}x</span>`
+                        : "") +
+                      this.text)}${this.metadata ? span(getTimestamp(this.metadata), "event-time") : ""}</div>
                     ${
                       desc.length > 0
                         ? `<div class="event-details">${desc.join("")}</div>`
@@ -2061,22 +2110,26 @@ async function parse(file) {
 
     if (state == "system-info" && !match(line, /^\[.+?\]\s*:/)) state = "default";
 
-    if (match(
-      line,
-      /^(Exception in (ThunderScript )?Update Loop: |.+ )?(System\.)?(?<type>(\w+\.)*\w*Exception)(\s*: (?<error>.+?))?( assembly:.+)?$/,
-      (groups) => {
-        if (state == "exception") {
-          // we just had an exception, time to save it
-          if (exception != null) {
-            game.addException(exception);
-            exception = null;
+    if (
+      match(
+        line,
+        /^(Exception in (ThunderScript )?Update Loop: |.+ )?(System\.)?(?<type>(\w+\.)*\w*Exception)(\s*: (?<error>.+?))?( assembly:.+)?$/,
+        (groups) => {
+          if (state == "exception") {
+            // we just had an exception, time to save it
+            if (exception != null) {
+              game.addException(exception);
+              exception = null;
+            }
           }
-        }
 
-        state = "exception";
-        exception = new Exception(groups.type, groups.error);
-      }
-    )) return;
+          state = "exception";
+          exception = new Exception(groups.type, groups.error);
+          exception.prevLine = prev;
+        }
+      )
+    )
+      return;
 
     // Match game pool generation finishing and the loading being 'complete'
     if (match(line, /.*Complete pool generation finished in: \d+\.\d+ sec/, () => {
@@ -2520,7 +2573,6 @@ async function parse(file) {
               groups.filename,
               groups.line
             );
-            exception.lines.push(exceptionLine);
             if (groups.location.match(/__instance|Prefix|Postfix|_Patch(\d+)/))
               exception.tags.add("harmony");
             if (
@@ -2536,6 +2588,7 @@ async function parse(file) {
               exception.tags.add("unmodded");
               exceptionLine.modded = false;
             }
+            exception.lines.push(exceptionLine);
           }
         );
         break;
@@ -2581,8 +2634,8 @@ function matchSystemInfo(line) {
   if (match(line, /^Game version: (?<version>.+)/, (groups) => {
     game.system.version = groups.version;
   })) return true;
-  if (match(line, /^Initialize engine version: (?<version>.+)/, (groups) => {
-    game.system.build_number = groups.version;
+  if (match(line, /^Initialize engine version: (?<version>.+) \(.+\)/, (groups) => {
+    game.system.unity_version = groups.version;
   })) return true;
   if (match(line, /^Device model : (?<model>.+)/, (groups) => {
     game.system.hmd_model = groups.model;
