@@ -1,6 +1,6 @@
 // https://coolors.co/333344-45cb85-ff4f79-1e91d6-f4ac45
 
-const VERSION = "2.3.1";
+const VERSION = "2.3.2";
 
 const containers = {
   mods: document.querySelector("#mod-list"),
