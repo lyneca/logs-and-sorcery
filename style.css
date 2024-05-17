@@ -816,6 +816,12 @@ code.padded {
     font-family: "Fira Code", monospace;
 }
 
+@media screen and (max-width: 1500px) {
+    .preview-filename {
+        display: none;
+    }
+}
+
 @media screen and (max-width: 1200px) {
     html, body {
         margin: 0;

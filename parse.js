@@ -30,6 +30,14 @@ const IGNORED_ARGS = [
   "StateTracker.",
 ];
 
+const IGNORED_PREVIEW = [
+  /^UnityEngine\.Rigidbody\./,
+  /^ThunderRoad\.PhysicBody\./,
+  /^UnityEngine\.Transform\./,
+  /^UnityEngine\./,
+  /^System\./,
+]
+
 const TAG_ICONS = {
   dll: "plugin",
   pdb: "search-2",
@@ -1604,6 +1612,22 @@ class Exception {
     return Array.from(keywords).join(" ").toLowerCase();
   }
 
+  renderPreview() {
+    if (this.tags.has("modded")) {
+    return (
+      this.lines
+        .find((line) => line.modded && line.priority)
+        ?.renderPreview() ?? this.lines[0].renderPreview()
+    );
+    } else {
+      return (
+        this.lines
+          .find((line) => line.priority)
+          ?.renderPreview() ?? this.lines[0].renderPreview()
+      );
+    }
+  }
+
   render(count) {
     count ??= this.count;
     return `<div class="exception event" onclick="expandException(this)" data-keywords="${this.keywords}">
@@ -1648,7 +1672,7 @@ class Exception {
                             .join(" ")}</span>`
                         : ""
                     }
-                    ${this.lines.length > 0 ? `<span>${this.lines[0].renderPreview()}</span>` : ""}
+                    ${this.lines.length > 0 ? `<span>${this.renderPreview()}</span>` : ""}
                     <span class="exception-level">${this.area ? `<span class="exception-line-location dim">${this.area}</span><span class="dim code"> ~ </span>` : ""}${this.level ? `<span class="exception-line-location dim">${this.level}</span>` : ""}</span></span></span>
                     </div>
                     ${
@@ -1678,10 +1702,18 @@ class ExceptionLine {
     this.address = address;
     this.filename = filename;
     this.line = line;
+    this.modded = false;
     this.extraCount = 0;
     if (filename?.match(/<(.+)>/)) {
       this.filename = filename.match(/<(?<address>.+)>/).groups.address;
       this.line = -1;
+    }
+
+    this.priority = true;
+
+    for (let name of IGNORED_PREVIEW) {
+      if (this.location.match(name))
+        this.priority = false;
     }
   }
 
@@ -1805,6 +1837,8 @@ class ExceptionLine {
       funcPart = funcPart
         .slice(funcPart.length - 2)
         .join(`<span class="dim"> > </span>`);
+      if (this.filename && this.line >= 0)
+        funcPart += `<span class="preview-filename"><span class="dim"> ~ </span><span class="dim">${this.filename}:${this.line}</span></span>`;
       return `${funcPart}`;
     }
     return this.location;
@@ -2480,28 +2514,27 @@ async function parse(file) {
                 return;
               }
             }
-            exception.lines.push(
-              new ExceptionLine(
-                groups.location,
-                groups.address,
-                groups.filename,
-                groups.line
-              )
+            let exceptionLine = new ExceptionLine(
+              groups.location,
+              groups.address,
+              groups.filename,
+              groups.line
             );
+            exception.lines.push(exceptionLine);
             if (groups.location.match(/__instance|Prefix|Postfix|_Patch(\d+)/))
               exception.tags.add("harmony");
             if (
-              !groups.location.match(
-                UNMODDED_REGEX
-              )
+              !groups.location.match(UNMODDED_REGEX)
             ) {
               let match = groups.location.match(/^(?<namespace>(\w|\+)+)\./);
               if (match != null) exception.mods.add(match.groups.namespace);
               exception.tags.add("modded");
+              exceptionLine.modded = true;
             } else {
               let match = groups.location.match(/^(?<namespace>(\w|\+)+)\./);
               if (match != null) exception.mods.add("Base Game");
               exception.tags.add("unmodded");
+              exceptionLine.modded = false;
             }
           }
         );
