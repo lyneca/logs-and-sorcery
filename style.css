@@ -14,7 +14,7 @@ body, html {
     max-height: 100vh;
     box-sizing: border-box;
     margin: 0;
-    overscroll-behaviour-y: contain;
+    overscroll-behaviour-y: none;
 }
 
 body {
