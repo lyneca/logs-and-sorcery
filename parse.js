@@ -340,6 +340,7 @@ function renderFunc(stringOrFunc) {
 }
 
 async function loadFile(file) {
+  console.log(file);
   startTime = Date.now();
   cleanup();
   document.querySelector(".help").style.opacity = 0;
@@ -362,6 +363,7 @@ async function loadFile(file) {
   let totalTimeStart = parseStart = Date.now();
   setStatus("Parsing log lines")
   await parse(file);
+  game.system.log_file_name = file.name;
   startTime = Date.now();
   parseStart = Date.now();
   setStatus("Sorting mods")
@@ -772,7 +774,7 @@ class Game {
     this.missingData = [];
     this.loadErrors = [];
     this.selectors = {};
-    this.system = { game_directory: null, platform: null };
+    this.system = { game_directory: null, platform: null, log_file_name: null };
     this.info = {};
     this.suggestions = {};
     this.levels = []
