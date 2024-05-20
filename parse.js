@@ -472,13 +472,13 @@ function objectToTable(obj, title, includeEmpty = true, includeZero = true) {
     '<table class="auto-table">' +
     Object.entries(obj)
       .map(([key, value]) => {
-        if (typeof value == "function")
-          value = value();
-        return (includeEmpty ||
-          (value != "" && value != null && value != undefined)) &&
-        (includeZero || (value != 0 && value != "0"))
-          ? `<tr><td>${niceify(key)}</td><td id="td-${key}">${renderValue(value)}</td></tr>`
-          : ""}
+          if (typeof value == "function")
+              value = value();
+          return ((includeEmpty ||
+              (value && value != "null")) &&
+              (includeZero || (value != 0 && value != "0")))
+              ? `<tr><td>${niceify(key)}</td><td id="td-${key}">${renderValue(value)}</td></tr>`
+              : ""}
       )
       .join("") +
     "</table>"
@@ -937,23 +937,24 @@ class Game {
     setStatus(`Processing base game issues`)
     await game.baseGame.complete();
     setStatus(`Processing ${this.mods.length} mods`)
-    let i = 0;
     for (const mod of this.mods) {
       await mod.complete()
       await this.incrementProgress();
     }
     setStatus(`Collapsing ${[...Object.keys(this.suggestions)].length} suggestions`)
     await this.collapseSuggestions();
-    containers.mods.appendChild(
-      this.selector(
-        "Suggestions",
-        this.renderSuggestions,
-        [...Object.keys(this.suggestions)].length
-      )
-    );
-    containers.mods.appendChild(
-      this.selector("Timeline", this.renderTimeline, this.timeline.length)
-    );
+    if ([...Object.keys(this.suggestions)].length > 0)
+      containers.mods.appendChild(
+        this.selector(
+          "Suggestions",
+          this.renderSuggestions,
+          [...Object.keys(this.suggestions)].length
+        )
+      );
+    if (this.timeline.length > 0)
+      containers.mods.appendChild(
+          this.selector("Timeline", this.renderTimeline, this.timeline.length)
+      );
     if (this.areas.length > 0) {
       containers.mods.appendChild(
         this.selector("Areas", this.renderAreaList, this.areas.map(list => list.length - 2).reduce(reduceNumber, 0))
@@ -1098,7 +1099,7 @@ class Game {
             this.incompatibleMods.length
           )
         : null,
-      this.baseGame?.renderList(true),
+      this.baseGame?.hasAnything() ? this.baseGame.renderList(true) : null,
       createHR(),
     ].filter((elem) => elem != null)) {
       containers.mods.appendChild(entry);
@@ -1115,7 +1116,7 @@ class Game {
   }
 
   async renderGameInfo() {
-    return wrapDetails("System Info", objectToTable(this.system)) + hr() + wrapDetails("Log Parse Info", this.renderParseInfo());
+    return wrapDetails("System Info", objectToTable(this.system, "", false)) + hr() + wrapDetails("Log Parse Info", this.renderParseInfo());
   }
 
   renderTime(title, width, color) {
@@ -1331,6 +1332,10 @@ class Mod {
   sortKey() {
     let value = this.loadErrors.length + this.missingDLLs.length + this.missingData.length + Object.values(this.exceptions).reduce(reduceExceptions, 0);
     return value;
+  }
+
+  hasAnything() {
+    return this.loadErrors.length + this.missingDLLs.length + this.missingData.length + Object.values(this.exceptions).reduce(reduceExceptions, 0);
   }
 
   renderList(bold) {
@@ -2675,6 +2680,9 @@ function matchSystemInfo(line) {
   })) return true;
   if (match(line, /^ +Driver: +(?<driver>.+)/, (groups) => {
     game.system.gpu_driver = groups.driver;
+  })) return true;
+  if (match(line, /^Platform \[Android\] initialized/, (groups) => {
+    game.system.platform = "Nomad";
   })) return true;
   return false;
 }
