@@ -1279,8 +1279,10 @@ class Mod {
     this.name = name;
     this.folder = folder;
     this.assemblies = [];
+    this.thunderscripts = [];
     this.namespaces = new Set();
     this.catalogs = [];
+    this.modOptions = 0;
     this.invalidPaths = [];
     this.loadErrors = [];
     this.missingDLLs = [];
@@ -1385,6 +1387,8 @@ class Mod {
           .map((catalog) => code(catalog.catalog))
           .join(", "),
         tags: [...this.tags].join(", "),
+        thunderscripts: this.thunderscripts.map(({namespace, class_name}) => namespace + "." + class_name).join(", "),
+        mod_options: this.modOptions
       },
       "Details",
       false
@@ -2246,6 +2250,28 @@ async function parse(file) {
           }
         )) return;
 
+        // ModOption count
+        if (match(
+          line,
+          /\[ModManager\]\[Catalog\]\[(?<mod>.+?)\] Loaded (?<count>\d+) ModOptions/,
+          ({ mod, count }) => {
+            game.findOrCreateMod(mod).found.modOptions = count;
+          }
+        )) return;
+
+        // ModOption count
+        if (
+          match(
+            line,
+            /\[ModManager\]\[ThunderScript\]\[(?<mod>.+?)\] Loaded ThunderScript: (?<namespace>.+?)\.(?<class_name>.+?) on mod:.+/,
+            ({ mod, namespace, class_name }) =>
+              game
+                .findOrCreateMod(mod)
+                .found.thunderscripts.push({ namespace, class_name })
+          )
+        )
+          return;
+
         if (match(
           line,
           /\[JSON\]\[(?<mod>.+)\] - Loaded file: (?<path>.+)\\(?<file>[^\\]+).json/,
@@ -2409,6 +2435,41 @@ async function parse(file) {
           }
         )) return;
 
+        // Match gamemode load
+        if (match(
+          line,
+          /^\[GameModeManager\] Loaded game mode: (?<mode>.+?)\s*$/,
+          ({ mode }) => {
+            game.addEvent(`Loaded Gamemode ${bold(mode)}`, undefined, undefined, "color-gamemode");
+          }
+        )) return;
+
+        // Match gamemode unload
+        if (match(
+          line,
+          /^\[GameModeManager\] Unloaded game mode: (?<mode>.+?)\s*$/,
+          ({ mode }) => {
+            game.addEvent(`Unloaded Gamemode ${bold(mode)}`, undefined, undefined, "color-gamemode");
+          }
+        )) return;
+
+        // Match QA menu level load events
+        if (match(
+          line,
+          /^Load level Id - (?<level>.+?) \| mode:(?<mode>.+?) \| Difficulty=(?<difficulty>\d+)\s*$/,
+          (groups) => {
+            game.addEvent(`Level ${bold(groups.level)} loading from QA menu`, undefined, {
+              level: groups.level,
+              mode: groups.mode,
+              difficulty: groups.difficulty
+            });
+
+            game.levels.push(groups.level);
+            game.lastLevel = groups.level;
+            game.lastArea = null;
+          }
+        )) return;
+
         // Match level load events
         if (match(
           line,
@@ -2424,6 +2485,7 @@ async function parse(file) {
             game.lastArea = null;
           }
         )) return;
+
         if (match(line, /^Option: (?<name>.+): (?<value>.+)/, (groups) => {
           game.lastEvent.props[groups.name] = renderValue(groups.value);
         })) return;
