@@ -414,6 +414,9 @@ pre#directory, pre.directory {
 
 .exception-preview {
     margin: 5px 0;
+    display: flex;
+    justify-content: space-between;
+    gap: 50px;
 }
 
 .exception-mod {
@@ -447,6 +450,12 @@ pre#directory, pre.directory {
 
 .exception-level {
     float: right;
+    flex-shrink: 1;
+    break-inside: avoid;
+    display: flex;
+    justify-content: stretch;
+    gap: 10px;
+    min-width: 0;
 }
 
 .select {
@@ -505,6 +514,7 @@ pre#directory, pre.directory {
 }
 
 .exception-title {
+    flex-shrink: 0;
 }
 
 .label-div {
@@ -559,9 +569,36 @@ pre#directory, pre.directory {
     padding: 10px;
 }
 
+.exception-area {
+    font-family: "Fira Code", monospace;
+    break-inside: avoid;
+    overflow-x: hidden;
+    display: inline;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    flex-shrink: 1;
+}
+
+.exception-area-level {
+    font-family: "Fira Code", monospace;
+    break-inside: avoid;
+    overflow-x: hidden;
+    display: inline;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    flex-shrink: 0;
+}
+
 .exception-line-location, .exception-line-filename, .exception-line-line {
     font-family: "Fira Code", monospace;
     line-break: anywhere;
+}
+
+.exception-preview-flex {
+    font-family: "Fira Code", monospace;
+    display: inline-flex;
+    flex-wrap: nowrap;
+    gap: 10px;
 }
 
 .no-break {
@@ -571,6 +608,11 @@ pre#directory, pre.directory {
 
 .exception-line-filename, .exception-line-line {
     color: var(--light4);
+}
+
+.func-part {
+    text-overflow: ellipsis;
+    overflow-x: hidden;
 }
 
 span.prefix {
@@ -905,5 +947,18 @@ code.padded {
     .exception-title {
         display: block;
         margin-bottom: 5px;
+    }
+    .exception-area, .exception-tilde {
+        display: none;
+    }
+}
+
+@media screen and (max-width: 800px) {
+    .exception-area-level {
+        display: none;
+    }
+
+    .func-part:not(.func-part-1), .func-part-arrow {
+        display: none;
     }
 }

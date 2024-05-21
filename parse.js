@@ -1726,11 +1726,11 @@ class Exception {
                             .map((mod) => span(mod.name + modCertaintyIcon(this.modReasons[mod.folder].score),
                                                `exception-mod reason-${this.modReasons[mod.folder].reason} certainty-${modCertainty(this.modReasons[mod.folder].score)}`,
                                                {title: getCertainty(this.modReasons[mod.folder].score) + " " + getReason(this.modReasons[mod.folder].reason, this.modReasons[mod.folder].score)}))
-                            .join(" ")}</span>`
+                            .join(" ")}`
                         : ""
                     }
-                    ${this.lines.length > 0 ? `<span>${this.renderPreview()}</span>` : ""}
-                    <span class="exception-level">${this.area ? `<span class="exception-line-location dim">${this.area}</span><span class="dim code"> ~ </span>` : ""}${this.level ? `<span class="exception-line-location dim">${this.level}</span>` : ""}</span></span></span>
+                    ${this.lines.length > 0 ? `${this.renderPreview()}` : ""}</span>
+                    <span class="exception-level">${this.area ? `<span class="exception-area dim">${this.area}</span><span class="dim code exception-tilde"> ~ </span>` : ""}${this.level ? `<span class="exception-area-level dim">${this.level}</span>` : ""}</span></span></span>
                     </div>
                     ${
                       this.error
@@ -1876,9 +1876,11 @@ class ExceptionLine {
   getShortPath() {
     const funcSig = this.location.match(/(?<func>.+?) ?\((?<args>.+)?\)/);
     if (funcSig) {
+      let i = 0;
       let funcPart = [
         ...funcSig.groups.func.matchAll(/(\w+(<.+?>)?)(?:[^:. ()]+)?/g),
-      ]
+      ];
+      funcPart = funcPart
         .map((x) =>
           x[1].replace(
             /<(.+)>/,
@@ -1889,11 +1891,11 @@ class ExceptionLine {
         .map((x) =>
           x == "ctor"
             ? '<span class="italic">constructor</span>'
-            : `<span>${x}</span>`
+            : `<span class="func-part func-part-${funcPart.length - (i++)}">${x}</span>`
         );
       funcPart = funcPart
         .slice(funcPart.length - 2)
-        .join(`<span class="dim"> > </span>`);
+        .join(`<span class="dim func-part-arrow"> > </span>`);
       if (this.filename && this.line >= 0)
         funcPart += `<span class="preview-filename"><span class="dim"> ~ </span><span class="dim">${this.shortFileName()}:${this.line}</span></span>`;
       return `${funcPart}`;
@@ -1970,9 +1972,9 @@ class ExceptionLine {
   }
 
   renderPreview() {
-    return `<span><span class="dim code indent"> @ </span><span class="exception-line-location fade" title="${
+    return `<span class="dim code indent"> @ </span><span class="exception-preview-flex fade" title="${
       this.address
-    }">${this.getShortPath()}</span></span>`;
+    }">${this.getShortPath()}</span>`;
   }
 }
 
