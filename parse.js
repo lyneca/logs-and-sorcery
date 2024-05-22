@@ -2079,8 +2079,6 @@ class TimelineEvent {
 function match(line, re, callback) {
   let match = line.match(re);
   if (match && callback) callback(match.groups);
-  if (match)
-    console.log(`matched ${re}`);
   return match != null;
 }
 
@@ -2507,7 +2505,6 @@ async function parse(file) {
           }
         )) return;
 
-        console.log(state, line);
         // Match level load events
         if (match(
           line,
@@ -2543,11 +2540,12 @@ async function parse(file) {
         if (match(
           line,
           /^Dungeon generation success with (?<retries>\d+) area retry. Used seed:(?<seed>-?\d+)/,
-          (groups) => {
-            game.lastSeed = groups.seed;
-            game.lastEvent.props["Seed"] = renderValue(groups.seed);
+          ({retries, seed}) => {
+            game.lastSeed = seed;
+            game.lastEvent.params["Seed"] = seed
+            game.lastEvent.props["Seed"] = renderValue(seed);
             game.lastEvent.props["Generation Retries"] = renderValue(
-              groups.retries
+              retries
             );
           }
         )) return;
