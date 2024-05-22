@@ -687,12 +687,16 @@ function emph(string) {
   return `<em>${string}</em>`;
 }
 
-function li(string) {
-  return `<li>${string}</li>`;
+function li(string, classList) {
+  return `<li${classList ? ` class="${classList}"` : ""}>${string}</li>`;
 }
 
-function ul(elements) {
-  return `<ul>${elements.map(li).join("")}</ul>`;
+function ul(elements, parentClasses, childClasses) {
+  return `<ul${parentClasses ? ` class="${parentClasses}"` : ""}>${elements.map(elem => li(elem, childClasses)).join("")}</ul>`;
+}
+
+function ol(elements, parentClasses, childClasses) {
+  return `<ol${parentClasses ? ` class="${parentClasses}"` : ""}>${elements.map(elem => li(elem, childClasses)).join("")}</ol>`;
 }
 
 function wrapDetails(title, contents, description) {
@@ -982,7 +986,7 @@ class Game {
       );
     if (this.areas.length > 0) {
       containers.mods.appendChild(
-        this.selector("Areas", this.renderAreaList, this.areas.map(list => list.length - 2).reduce(reduceNumber, 0))
+        this.selector("Areas Traversed", this.renderAreaList, this.areas.map(list => list.length - 2).reduce(reduceNumber, 0))
       );
     }
     if (Object.keys(this.inventories).length > 0) {
@@ -1214,12 +1218,12 @@ class Game {
   }
 
   async renderAreaList() {
-    return div(this.areas.map((list) => {
+    return wrapDetails("Areas Traversed", this.areas.map((list) => {
       let [title, seed, ...rest] = list;
       return div(div(`Loaded level ${code(title)}`, "area-title")
         + code(`Seed: ${seed}`)
         + div(rest.map(elem => div(code(elem), "area-entry")).join(""), "area-list"), "area-set");
-    }).join(""));
+    }).join(""), "A list of areas the player traversed between in this game session.");
   }
 
   async renderInventories() {
@@ -2018,7 +2022,8 @@ class TimelineEvent {
     this.eventType = "timeline";
     this.keywords = this.getKeywords();
     this.buttons = [];
-    this.params = {}
+    this.params = {};
+    this.areas = [];
     this.count = 1;
   }
 
@@ -2070,6 +2075,7 @@ class TimelineEvent {
                         ? `<div class="event-details">${desc.join("")}</div>`
                         : ""
                     }
+                    ${this.areas.length > 0 ? div(heading("Areas", 3) + ol(this.areas, "code")) : ""}
                     ${this.buttons ? this.buttons.map(button => `<button onclick="${button.action}(event, JSON.parse(this.parentElement.parentElement.dataset.params))">${button.title}</button>`) : ""}
               </div>
             </div>`;
@@ -2491,12 +2497,11 @@ async function parse(file) {
         // Match QA menu level load events
         if (match(
           line,
-          /^Load level Id - (?<level>.+?) \| mode:(?<mode>.+?) \| Difficulty=(?<difficulty>\d+)\s*$/,
+          /^Load level Id - (?<level>.+?) \| mode:(?<mode>.+?)(?<options>( \| (.+?)=(.+?))*)\s*$/,
           (groups) => {
             game.addEvent(`Level ${bold(groups.level)} loading from QA menu`, undefined, {
               level: groups.level,
               mode: groups.mode,
-              difficulty: groups.difficulty
             });
 
             game.levels.push(groups.level);
@@ -2549,6 +2554,17 @@ async function parse(file) {
             );
           }
         )) return;
+        if (
+          match(
+            line,
+            /\[Area\] Instantiating area: (?<area>.+) completed/,
+            ({ area }) => {
+              game.lastEvent.areas.push(area);
+            }
+          )
+        )
+          return;
+
         if (match(
           line,
           /Total time to load (?<level>.+): (?<time>.+) sec/,
