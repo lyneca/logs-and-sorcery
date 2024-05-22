@@ -12,7 +12,7 @@ const PROGRESS_FINISH = 30;
 const PROGRESS_SORT = 10;
 
 const LOG_REGEX =
-  /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2}).(?<ms>\d+) +(?<level>[A-Z]+) .+?: /;
+  /^(.+?\|.+?\|)?(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2}).(?<ms>\d+) +(?<level>[A-Z]+)( .+?: )/;
 const XML_REGEX = /\r?<\\*color.*?>/g;
 const UNMODDED_REGEX = /^(ThunderRoad|Unity|DelegateList|RainyReignGames|ONSPAudioSource|SteamVR|OVR|OculusVR|System|StateTracker|\(wrapper|Valve|delegate|MonoBehaviourCallbackHooks|Newtonsoft|TMPro|UsingTheirs|FadeMixerGroup|Shadowood)/;
 
@@ -2079,6 +2079,8 @@ class TimelineEvent {
 function match(line, re, callback) {
   let match = line.match(re);
   if (match && callback) callback(match.groups);
+  if (match)
+    console.log(`matched ${re}`);
   return match != null;
 }
 
@@ -2505,6 +2507,7 @@ async function parse(file) {
           }
         )) return;
 
+        console.log(state, line);
         // Match level load events
         if (match(
           line,
