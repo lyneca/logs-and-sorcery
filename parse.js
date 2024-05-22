@@ -749,10 +749,13 @@ function copyLevelArgs(event, params) {
   navigator.clipboard.writeText(
     Object.entries(params)
       .map(([key, value]) =>
-        key == "level" || key == "gamemode"
+        key == "InstanceGuid"
+          ? null
+          : key == "level" || key == "gamemode"
           ? `-${key} ${value}`
           : `-leveloption ${key}=${value}`
       )
+      .filter(elem => elem)
       .join(" ")
   );
 }
