@@ -340,7 +340,6 @@ function renderFunc(stringOrFunc) {
 }
 
 async function loadFile(file) {
-  console.log(file);
   startTime = Date.now();
   cleanup();
   document.querySelector(".help").style.opacity = 0;
@@ -737,6 +736,27 @@ function foundMod(found, score, reason) {
   return {found, score, reason};
 }
 
+function copyLevelArgs(event, params) {
+  if (!params) return;
+  let target = event.target;
+  let text = event.target.innerText;
+    target.classList.add("active");
+  setTimeout(() => {
+    target.innerText = text;
+    target.classList.remove("active");
+  }, 2000);
+  // event.target.innerText = "Copied!";
+  navigator.clipboard.writeText(
+    Object.entries(params)
+      .map(([key, value]) =>
+        key == "level" || key == "gamemode"
+          ? `-${key} ${value}`
+          : `-leveloption ${key}=${value}`
+      )
+      .join(" ")
+  );
+}
+
 async function renderListOfEvents(container, list, title) {
     container.replaceChildren();
     let length = list.length;
@@ -1013,7 +1033,6 @@ class Game {
       this.suggestions[tag] = [];
     }
     if (reason) this.suggestions[tag].push(reason);
-    console.log(this.suggestions)
   }
 
   addException(exception) {
@@ -1987,6 +2006,8 @@ class TimelineEvent {
     this.props = props ?? {};
     this.eventType = "timeline";
     this.keywords = this.getKeywords();
+    this.buttons = [];
+    this.params = {}
     this.count = 1;
   }
 
@@ -2027,7 +2048,7 @@ class TimelineEvent {
           );
       });
       }
-    return `<div class="global event ${this.color ?? ""}" data-keywords="${this.keywords}">
+    return `<div class="global event ${this.color ?? ""}" data-keywords="${this.keywords}" data-params='${JSON.stringify(this.params)}'>
               <div class="event-container">
                     <div class="event-title">${span((this.count > 1
                         ? `<span class="fade count normal">${this.count}x</span>`
@@ -2038,6 +2059,7 @@ class TimelineEvent {
                         ? `<div class="event-details">${desc.join("")}</div>`
                         : ""
                     }
+                    ${this.buttons ? this.buttons.map(button => `<button onclick="${button.action}(event, JSON.parse(this.parentElement.parentElement.dataset.params))">${button.title}</button>`) : ""}
               </div>
             </div>`;
   }
@@ -2476,19 +2498,25 @@ async function parse(file) {
         if (match(
           line,
           /^Load level (?<level>.+?)( using mode (?<mode>.+))?$/,
-          (groups) => {
-            game.addEvent(`Level ${bold(groups.level)} loading...`, undefined, {
-              level: groups.level,
-              mode: groups.mode,
+          ({level, mode}) => {
+            game.addEvent(`Level ${bold(level)} loading...`, undefined, {
+              level: level,
+              mode: mode,
             });
 
-            game.levels.push(groups.level);
-            game.lastLevel = groups.level;
+            game.lastEvent.params = { level: level, gamemode: mode }
+            game.lastEvent.buttons.push({
+              title: "Copy Args",
+              action: "copyLevelArgs",
+            });
+            game.levels.push(level);
+            game.lastLevel = level;
             game.lastArea = null;
           }
         )) return;
 
         if (match(line, /^Option: (?<name>.+): (?<value>.+)/, (groups) => {
+          game.lastEvent.params[groups.name] = groups.value;
           game.lastEvent.props[groups.name] = renderValue(groups.value);
         })) return;
         if (match(line, /^Module: (?<name>.+)/, (groups) => {

@@ -237,6 +237,31 @@ input[type=text]:focus {
     opacity: 1;
 }
 
+button {
+    margin-top: 10px;
+    padding: 5px;
+    border: 2px solid var(--light3);
+    background-color: var(--dark0);
+    color: var(--light3);
+    border-radius: 5px;
+    font-family: "Open Sans", sans-serif;
+    font-size: 15px;
+    transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out, color 0.2s ease-in-out;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: var(--dark2);
+    color: var(--light0);
+    border-color: var(--light0);
+}
+
+button.active {
+    background-color: var(--dark0);
+    color: var(--bright_green);
+    border-color: var(--bright_green);
+}
+
 .search-title {
     display: flex;
     flex-direction: row;
@@ -285,7 +310,7 @@ pre#directory, pre.directory {
 }
 
 .thin {
-    max-width: 600px;
+    max-width: 900px;
 }
 
 #exceptions {
