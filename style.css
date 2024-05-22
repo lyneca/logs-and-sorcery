@@ -216,7 +216,6 @@ li {
     background-color: var(--faded_green);
     max-width: 0%;
     height: 100%;
-    /* transition: max-width 0.2s ease-in-out, opacity 0.2s ease-in-out; */
 }
 
 input[type=text] {
@@ -227,7 +226,7 @@ input[type=text] {
     border-radius: 5px;
     color: var(--fg);
     font-family: "Fira Code", monospace;
-    transition: opacity 0.2s ease-in-out;
+    transition: opacity 0.1s ease-in-out;
     opacity: 0.7;
 }
 
@@ -240,26 +239,30 @@ input[type=text]:focus {
 button {
     margin-top: 10px;
     padding: 5px;
-    border: 2px solid var(--light3);
-    background-color: var(--dark0);
-    color: var(--light3);
+    border: 2px solid var(--dark2);
+    color: var(--dark0);
+    background-color: var(--dark2);
+    color: var(--light0);
+    box-shadow: 3px 3px 5px 0 rgba(0, 0, 0, 0.2);
     border-radius: 5px;
     font-family: "Open Sans", sans-serif;
     font-size: 15px;
-    transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out, color 0.2s ease-in-out;
+    transition: background-color 0.1s ease-in-out, border-color 0.2s ease-in-out, color 0.1s ease-in-out;
     cursor: pointer;
 }
 
 button:hover {
-    background-color: var(--dark2);
-    color: var(--light0);
-    border-color: var(--light0);
+    background-color: var(--dark1);
+}
+
+button:active {
+    background-color: var(--dark0);
+    border-color: var(--dark2);
+    cursor: default;
 }
 
 button.active {
-    background-color: var(--dark0);
-    color: var(--bright_green);
-    border-color: var(--bright_green);
+    border-color: var(--faded_green);
 }
 
 .search-title {
@@ -534,7 +537,7 @@ pre#directory, pre.directory {
     padding: 10px;
 }
 
-.event-container:hover {
+.event-container:has(.expand):hover {
     background-color: var(--layer2);
 }
 
@@ -549,8 +552,11 @@ pre#directory, pre.directory {
 
 .exception {
     background-color: var(--error);
-    cursor: pointer;
     position: relative;
+}
+
+.exception:has(.expand) {
+    cursor: pointer;
 }
 
 .event:first-of-type {

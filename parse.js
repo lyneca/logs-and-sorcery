@@ -14,7 +14,7 @@ const PROGRESS_SORT = 10;
 const LOG_REGEX =
   /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2}).(?<ms>\d+) +(?<level>[A-Z]+) .+?: /;
 const XML_REGEX = /\r?<\\*color.*?>/g;
-const UNMODDED_REGEX = /^(ThunderRoad|Unity|DelegateList|RainyReignGames|ONSPAudioSource|SteamVR|OVR|OculusVR|System|StateTracker|\(wrapper|Valve|delegate|MonoBehaviourCallbackHooks|Newtonsoft|TMPro|UsingTheirs|FadeMixerGroup)/;
+const UNMODDED_REGEX = /^(ThunderRoad|Unity|DelegateList|RainyReignGames|ONSPAudioSource|SteamVR|OVR|OculusVR|System|StateTracker|\(wrapper|Valve|delegate|MonoBehaviourCallbackHooks|Newtonsoft|TMPro|UsingTheirs|FadeMixerGroup|Shadowood)/;
 
 const IGNORED_ARGS = [
   "Newtonsoft.",
@@ -742,9 +742,9 @@ function copyLevelArgs(event, params) {
   let text = event.target.innerText;
     target.classList.add("active");
   setTimeout(() => {
-    target.innerText = text;
+    // target.innerText = text;
     target.classList.remove("active");
-  }, 2000);
+  }, 1000);
   // event.target.innerText = "Copied!";
   navigator.clipboard.writeText(
     Object.entries(params)
@@ -1310,6 +1310,7 @@ class Mod {
     this.overrides = [];
     this.json = [];
     this.tags = new Set();
+    this.slug = slugify(this.folder);
   }
 
   addInvalidJson(path, json, error) {
@@ -1342,6 +1343,10 @@ class Mod {
     );
   }
 
+  getButtonLink() {
+    return `mod-${this.slug}`;
+  }
+
   loadErrorCount() {
     let count = this.loadErrors.length + this.missingDLLs.length + this.missingData.length;
     return count > 0 ? createSpan("mod-error-count", {}, count) : "";
@@ -1362,9 +1367,8 @@ class Mod {
   }
 
   renderList(bold) {
-    let slug = slugify(this.folder);
-    game.selectors[`mod-${slug}`] = async () => await this.renderDetails();
-    return createDiv("mod", {id: `mod-${slug}`, onclick: async () => await clickButton(`mod-${slug}`)},
+    game.selectors[`mod-${this.slug}`] = async () => await this.renderDetails();
+    return createDiv("mod", {id: `mod-${this.slug}`, onclick: async () => await clickButton(`mod-${this.slug}`)},
       createDiv("mod-headers", {}, [
         createDiv(bold ? "selector-title" : "mod-title", {}, [this.name, ...this.renderTags()]),
         createDiv("mod-errors", {}, [this.loadErrorCount(), this.exceptionCount()]),
@@ -1739,12 +1743,16 @@ class Exception {
                         : ""
                     }${this.type}</div>
                     <div class="exception-preview">
+                    <span class="exception-title fade">
                     ${
                       [...this.mods].length > 0
-                        ? `<span class="exception-title fade">${[...this.mods]
+                        ? `${[...this.mods]
                             .map((mod) => span(mod.name + modCertaintyIcon(this.modReasons[mod.folder].score),
                                                `exception-mod reason-${this.modReasons[mod.folder].reason} certainty-${modCertainty(this.modReasons[mod.folder].score)}`,
-                                               {title: getCertainty(this.modReasons[mod.folder].score) + " " + getReason(this.modReasons[mod.folder].reason, this.modReasons[mod.folder].score)}))
+                                               {
+                                               title: getCertainty(this.modReasons[mod.folder].score) + " " + getReason(this.modReasons[mod.folder].reason, this.modReasons[mod.folder].score),
+                                               onclick: `clickButton('${mod.getButtonLink()}')`
+                                               }))
                             .join(" ")}`
                         : ""
                     }
@@ -1758,13 +1766,13 @@ class Exception {
                     }
                     ${
                       this.lines.length > 0
-                        ? `<div class="event-details event-hidden">
+                        ? `<div class="event-details expand event-hidden">
                            <div class="exception-lines">${this.lines
                              .map((line) => line.render())
                              .join("")}</div>
                            </div>`
                         : this.extra
-                        ? `<div class="event-details event-hidden"><div class="exception-extra">${this.extra}</div></div>`
+                        ? `<div class="event-details expand event-hidden"><div class="exception-extra">${this.extra}</div></div>`
                         : ""
                     }
                   </div>
