@@ -536,6 +536,9 @@ pre#directory, pre.directory {
     transition: background-color 0.2s ease-in-out;
     padding: 10px;
 }
+.event-container:has(.expand){
+    cursor: pointer;
+}
 
 .event-container:has(.expand):hover {
     background-color: var(--layer2);
@@ -553,10 +556,6 @@ pre#directory, pre.directory {
 .exception {
     background-color: var(--error);
     position: relative;
-}
-
-.exception:has(.expand) {
-    cursor: pointer;
 }
 
 .event:first-of-type {
@@ -846,6 +845,10 @@ code.padded {
 
 .color-skills {
     background-color: var(--neutral_aqua);
+}
+
+.color-level {
+    background-color: var(--neutral_yellow);
 }
 
 .color-gamemode {

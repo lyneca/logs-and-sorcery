@@ -427,7 +427,7 @@ function renderValue(value) {
 }
 
 function expandException(elem) {
-  let error = elem.querySelector(".event-details");
+  let error = elem.querySelector(".expand");
   if (error == null) return;
   if (!error.classList.contains("event-hidden")) {
     error.classList.add("event-hidden");
@@ -741,6 +741,7 @@ function foundMod(found, score, reason) {
 }
 
 function copyLevelArgs(event, params) {
+  event.stopPropagation();
   if (!params) return;
   let target = event.target;
   let text = event.target.innerText;
@@ -2064,7 +2065,7 @@ class TimelineEvent {
           );
       });
       }
-    return `<div class="global event ${this.color ?? ""}" data-keywords="${this.keywords}" data-params='${JSON.stringify(this.params)}'>
+    return `<div class="global event ${this.color ?? ""}" onclick="expandException(this)" data-keywords="${this.keywords}" data-params='${JSON.stringify(this.params)}'>
               <div class="event-container">
                     <div class="event-title">${span((this.count > 1
                         ? `<span class="fade count normal">${this.count}x</span>`
@@ -2075,8 +2076,8 @@ class TimelineEvent {
                         ? `<div class="event-details">${desc.join("")}</div>`
                         : ""
                     }
-                    ${this.areas.length > 0 ? div(heading("Areas", 3) + ol(this.areas, "code")) : ""}
                     ${this.buttons ? this.buttons.map(button => `<button onclick="${button.action}(event, JSON.parse(this.parentElement.parentElement.dataset.params))">${button.title}</button>`) : ""}
+                    ${this.areas.length > 0 ? hr() + div("Click to show loaded areas...", "dim italic") + div(ol(this.areas, "code"), "event-details expand event-hidden exception-lines") : ""}
               </div>
             </div>`;
   }
@@ -2515,10 +2516,15 @@ async function parse(file) {
           line,
           /^Load level (?<level>.+?)( using mode (?<mode>.+))?$/,
           ({level, mode}) => {
-            game.addEvent(`Level ${bold(level)} loading...`, undefined, {
-              level: level,
-              mode: mode,
-            });
+            game.addEvent(
+              `Level ${bold(level)} loading...`,
+              undefined,
+              {
+                level: level,
+                mode: mode,
+              },
+              "color-level"
+            );
 
             game.lastEvent.params = { level: level, gamemode: mode }
             game.lastEvent.buttons.push({
