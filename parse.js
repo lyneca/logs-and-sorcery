@@ -2029,7 +2029,7 @@ class TimelineEvent {
   }
 
   getKeywords() {
-    let keywords = new Set(this.text.toLowerCase().split(" "));
+    let keywords = new Set(this.text.toLowerCase().replace(/<\/?.+?>/g, "").split(" "));
     keywords.add(this.eventType);
     if (this.description) {
       for (let word of this.description.toLowerCase().split(" "))
