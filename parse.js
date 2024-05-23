@@ -1837,10 +1837,11 @@ class ExceptionLine {
   }
 
   getPath() {
+    const debug = this.location.match(/TeleporterPad/);
     const funcSig = this.location.match(/(?<func>.+?) ?\((?<args>.+)?\)/);
     if (funcSig) {
       const funcPart = [
-        ...funcSig.groups.func.matchAll(/(\w+(<.+?>)?)(?:[^:. ()]+)?/g),
+        ...funcSig.groups.func.replace(/\+<>.+?\.<(?<method>.+?)>[^\.]+/, (_, method) => {return `.${method}.lambda`}).matchAll(/(\w+(<.+?>)?)(?:[^:. ()]+)?/g),
       ]
         .map((x) =>
           x[1].replace(
@@ -1852,7 +1853,7 @@ class ExceptionLine {
         .map((x) =>
           x == "ctor"
             ? '<span class="italic">constructor</span>'
-            : `<span>${x}</span>`
+            : (x == "lambda" ? '<span class="italic dim">inline</span>' : `<span>${x}</span>`)
         )
         .join(`<span class="dim"> > </span>`);
       let argsPart = [];
@@ -1862,6 +1863,7 @@ class ExceptionLine {
             /(?:([^`, ]+)[^, ]*( ([^`, ]+)[^ ,]*)?)/g
           ),
         ].map((x) => x[1] + (x[2] ? x[2] : ""));
+      if (debug) console.log(funcPart);
       let argsString = "";
       argsPart = argsPart.map((part) => {
         let argPortions = [
@@ -2450,6 +2452,17 @@ async function parse(file) {
                 id: groups.id,
                 error: `An ${code("EffectModuleVfx")} in this effect has an invalid ${code("vfxAddress")} or ${code("meshAddress")}.`,
               });
+          }
+        )) return;
+
+        if (match(
+          line,
+          /^ItemSpawner (?<spawner>.+) has a self reference loop in parent spawner chain/,
+          ({spawner}) => {
+            game.addEvent(
+              `Found cyclic graph in an  ${code("ItemSpawner")}`,
+              `The following ${code("ItemSpawner")} has a cycle in its chain of ${code("parentSpawner")} references.<br>${code(spawner)}`,
+            );
           }
         )) return;
 
