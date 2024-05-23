@@ -2169,7 +2169,7 @@ async function parse(file) {
               " Parameter: " + `<code>${groups.parameter}</code>`;
         })
       ) {
-      } else if (!line.match(/^(  at |Rethrow as )/)) {
+      } else if (!line.match(/^(  at |Rethrow as |You probably need to assign the .+ variable of the .+ script in the inspector.)/)) {
         // if line is not an exception, save it and reset to default:
         if (exception != null) {
           game.addException(exception);
@@ -2184,7 +2184,7 @@ async function parse(file) {
     if (
       match(
         line,
-        /^(Exception in (ThunderScript )?Update Loop: |.+ )?(System\.)?(?<type>(\w+\.)*\w*Exception)(\s*: (?<error>.+?))?( assembly:.+)?$/,
+        /^(Exception in (ThunderScript )?Update Loop: |.+ )?((System|UnityEngine)\.)?(?<type>(\w+\.)*\w*Exception)(\s*: (?<error>.+?))?( assembly:.+)?$/,
         (groups) => {
           if (state == "exception") {
             // we just had an exception, time to save it
