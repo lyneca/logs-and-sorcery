@@ -2769,9 +2769,11 @@ async function parse(file) {
 }
 
 function matchSystemInfo(line) {
+  // Match game path; do not return
   if (match(line, /^Mono path\[0\] = '(?<path>.+)'$/, (groups) => {
     game.system.game_directory = groups.path.replace(/\\/g, "/");
-  })) return true;
+  }));
+
   if (match(line, /^Mono path\[0\] = '.+(Oculus)?\\Software.+/i, () => {
     game.system.platform = "Oculus";
   })) return true;
@@ -2783,6 +2785,7 @@ function matchSystemInfo(line) {
   })) return true;
   if (match(line, /^Successfully loaded content catalog at path (?<path>.+)'$/, (groups) => {
     game.system.game_directory = groups.path.replace(/\\/g, "/");
+    console.log("succecssful")
   })) return true;
   if (match(line, /^Successfully loaded content catalog at path .+(Oculus)?\\Software.+/i, () => {
     game.system.platform = "Oculus";
