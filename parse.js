@@ -38,6 +38,8 @@ const IGNORED_PREVIEW = [
   /^System\./,
 ]
 
+const IGNORED_TIMINGS = /Rendered \d+ reflection probes/;
+
 const TAG_ICONS = {
   dll: "plugin",
   pdb: "search-2",
@@ -354,6 +356,9 @@ async function loadFile(file) {
     document.querySelector("h1").style.display = "none";
     document.querySelector("#file-input").style.display = "none";
   }, 200);
+  setTimeout(() => {
+    document.querySelector(".help").style.display = "none";
+  });
   setProgress(0, true);
   // let lines = await readFileText(file);
   // lines = lines.replace(/\r\n/g, "\n")
@@ -471,12 +476,14 @@ async function clickButton(id, doProgress = true) {
     callback();
 }
 
-function objectToTable(obj, title, includeEmpty = true, includeZero = true, headers = undefined) {
+function objectToTable(obj, title, includeEmpty = true, includeZero = true, headers = undefined, sort = false) {
+  let entries = Object.entries(obj);
+  if (sort) entries.sort((a, b) => a[1] - b[1]).reverse();
   return (
     (title ? heading(title) : "") +
     '<table class="auto-table">' +
     (headers ? `<tr>${headers.map(header => `<th>${header}</th>`).join("")}</tr>` : "") +
-    Object.entries(obj)
+    entries
       .map(([key, value]) => {
           if (typeof value == "function")
               value = value();
@@ -1002,7 +1009,7 @@ class Game {
     }
     if (Object.keys(this.timing).length > 0) {
       containers.mods.appendChild(
-        this.selector("Timings", this.renderTime, Object.keys(this.timing).length)
+        this.selector("Timings", this.renderTimings, Object.values(this.timing).reduce(reduceObjectList, 0))
       );
     }
     if (Object.keys(this.missingDamagers).length > 0) {
@@ -1063,10 +1070,18 @@ class Game {
     }
   }
 
-  addTime(process, time) {
+  addTime(process, time, category) {
     if (process.endsWith("Game loaded")) return;
-    this.timing[process] ??= 0;
-    this.timing[process] += time;
+    if (process.match(IGNORED_TIMINGS)) return;
+    if (category) {
+      this.timing[category] ??= {};
+      this.timing[category][process] ??= 0;
+      this.timing[category][process] += time;
+    } else {
+      this.timing.General ??= {};
+      this.timing.General[process] ??= 0;
+      this.timing.General[process] += time;
+    }
   }
 
   addEvent(text, description, props, color, metadata) {
@@ -1158,8 +1173,20 @@ class Game {
     return wrapDetails("System Info", objectToTable(this.system, "", false)) + hr() + wrapDetails("Log Parse Info", this.renderParseInfo());
   }
 
-  async renderTime() {
-    return wrapDetails("Timings", objectToTable(this.timing, "", false, true, ["Task", "Duration"]));
+  async renderTimings() {
+    try {
+      return Object.entries(this.timing).map(this.renderTimeBlock).join("");
+    } catch (e) {
+      alert(e);
+    }
+  }
+
+  renderTimeBlock([key, value]) {
+    return wrapDetails(key, objectToTable(value, "", false, true, ["Task", "Duration"], true));
+  }
+
+  renderTime(title, width, color) {
+    return `<span class="time-block" style="width:${width * 100}%; background-color: var(--${color})">${(width > 0.05) ? title : ""}</span>`;
   }
 
   renderParseInfo() {
@@ -1220,7 +1247,7 @@ class Game {
     }
   }
 
-  async renderTimings() {
+  async renderTimingGraph() {
     return [div(`<canvas id="timing"></canvas>`), loadTimings];
   }
 
@@ -2116,6 +2143,7 @@ function setupProgressDisplay() {
 }
 
 function reduceNumber(acc, x) { return acc + x }
+function reduceObjectList(acc, x) { return acc + Object.values(x).length }
 function reduceExceptions(acc, x) { return acc + x.count }
 
 function refreshProgress(rows) {
@@ -2238,8 +2266,8 @@ async function parse(file) {
         if (matchSystemInfo(line)) return;
 
         // Match load time events for pie chart
-        match(line, /(-+> ?)?(?<process>.+) in (?<time>[\d\.]+) sec/, (groups) =>
-          game.addTime(groups.process, parseFloat(groups.time))
+        match(line, /(-+> ?)?(\[(?<category>\w+)\] )?(?<process>.+) in (?<time>[\d\.]+) sec/, ({category, process, time}) =>
+          game.addTime(process, parseFloat(time), category)
         );
 
         // Match old (< U12.3) mod detection
