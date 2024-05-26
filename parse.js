@@ -251,7 +251,11 @@ fileInput.addEventListener("click", (e) => {
   fileClickInput.click();
 });
 fileClickInput.addEventListener("change", async (e) => {
+    // try {
   await loadFile(e.target.files[0]);
+    // } catch (e) {
+        // alert(e);
+    // }
 });
 
 var lastBreak = Date.now()
@@ -467,10 +471,11 @@ async function clickButton(id, doProgress = true) {
     callback();
 }
 
-function objectToTable(obj, title, includeEmpty = true, includeZero = true) {
+function objectToTable(obj, title, includeEmpty = true, includeZero = true, headers = undefined) {
   return (
     (title ? heading(title) : "") +
     '<table class="auto-table">' +
+    (headers ? `<tr>${headers.map(header => `<th>${header}</th>`).join("")}</tr>` : "") +
     Object.entries(obj)
       .map(([key, value]) => {
           if (typeof value == "function")
@@ -995,6 +1000,11 @@ class Game {
         this.selector("Inventories", this.renderInventories, Object.values(this.inventories).map(list => list.length).reduce(reduceNumber, 0))
       );
     }
+    if (Object.keys(this.timing).length > 0) {
+      containers.mods.appendChild(
+        this.selector("Timings", this.renderTime, Object.keys(this.timing).length)
+      );
+    }
     if (Object.keys(this.missingDamagers).length > 0) {
       containers.mods.appendChild(
         this.selector("Missing Damagers", this.renderMissingDamagers, Object.values(this.missingDamagers).reduce((acc, group) => acc + Array.from(group).length, 0))
@@ -1148,8 +1158,8 @@ class Game {
     return wrapDetails("System Info", objectToTable(this.system, "", false)) + hr() + wrapDetails("Log Parse Info", this.renderParseInfo());
   }
 
-  renderTime(title, width, color) {
-    return `<span class="time-block" style="width:${width * 100}%; background-color: var(--${color})">${(width > 0.05) ? title : ""}</span>`;
+  async renderTime() {
+    return wrapDetails("Timings", objectToTable(this.timing, "", false, true, ["Task", "Duration"]));
   }
 
   renderParseInfo() {
@@ -2228,7 +2238,7 @@ async function parse(file) {
         if (matchSystemInfo(line)) return;
 
         // Match load time events for pie chart
-        match(line, /(?<process>.+) in (?<time>[\d\.]+) sec/, (groups) =>
+        match(line, /(-+> ?)?(?<process>.+) in (?<time>[\d\.]+) sec/, (groups) =>
           game.addTime(groups.process, parseFloat(groups.time))
         );
 
