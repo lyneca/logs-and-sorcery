@@ -1847,7 +1847,6 @@ class ExceptionLine {
   }
 
   getPath() {
-    const debug = this.location.match(/TeleporterPad/);
     const funcSig = this.location.match(/(?<func>.+?) ?\((?<args>.+)?\)/);
     if (funcSig) {
       const funcPart = [
@@ -1873,7 +1872,6 @@ class ExceptionLine {
             /(?:([^`, ]+)[^, ]*( ([^`, ]+)[^ ,]*)?)/g
           ),
         ].map((x) => x[1] + (x[2] ? x[2] : ""));
-      if (debug) console.log(funcPart);
       let argsString = "";
       argsPart = argsPart.map((part) => {
         let argPortions = [
@@ -1961,7 +1959,7 @@ class ExceptionLine {
         .match(/(?<prefix>.+\/)(?<folder>.+?)\/(?<filename>.+?\.cs)$/)
         ?.groups;
       if (match) {
-        let { prefix, folder, filename } = match;
+        let { folder, filename } = match;
         return `${folder ? folder + "/" : ""}${filename}`;
       }
       return this.filename;
@@ -2272,7 +2270,7 @@ async function parse(file) {
         if (match(
           line,
           /\[ModManager\]\[Assembly\]\[(?<mod>.+?)\] Loading Assembly Debug Symbols: (?<path>([^\\]+\\)+)(?<dll>.+\.pdb)/,
-          ({ mod, path, dll }) => {
+          ({ mod, path }) => {
             let folder = path.split("\\")[0];
             game.findOrCreateMod(mod, folder).found.tags.add("pdb");
           }
@@ -2796,7 +2794,6 @@ function matchSystemInfo(line) {
   })) return true;
   if (match(line, /^Successfully loaded content catalog at path (?<path>.+)'$/, (groups) => {
     game.system.game_directory = groups.path.replace(/\\/g, "/");
-    console.log("succecssful")
   })) return true;
   if (match(line, /^Successfully loaded content catalog at path .+(Oculus)?\\Software.+/i, () => {
     game.system.platform = "Oculus";
@@ -2836,7 +2833,7 @@ function matchSystemInfo(line) {
   if (match(line, /^ +Driver: +(?<driver>.+)/, (groups) => {
     game.system.gpu_driver = groups.driver;
   })) return true;
-  if (match(line, /^Platform \[Android\] initialized/, (groups) => {
+  if (match(line, /^Platform \[Android\] initialized/, () => {
     game.system.platform = "Nomad";
   })) return true;
   return false;
