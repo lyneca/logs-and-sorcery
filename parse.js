@@ -253,11 +253,7 @@ fileInput.addEventListener("click", (e) => {
   fileClickInput.click();
 });
 fileClickInput.addEventListener("change", async (e) => {
-    // try {
   await loadFile(e.target.files[0]);
-    // } catch (e) {
-        // alert(e);
-    // }
 });
 
 var lastBreak = Date.now()
@@ -476,9 +472,9 @@ async function clickButton(id, doProgress = true) {
     callback();
 }
 
-function objectToTable(obj, title, includeEmpty = true, includeZero = true, headers = undefined, sort = false) {
+function objectToTable(obj, title, includeEmpty = true, includeZero = true, headers = undefined, sort = undefined) {
   let entries = Object.entries(obj);
-  if (sort) entries.sort((a, b) => a[1] - b[1]).reverse();
+  if (sort) entries.sort(sort).reverse();
   return (
     (title ? heading(title) : "") +
     '<table class="auto-table">' +
@@ -487,6 +483,14 @@ function objectToTable(obj, title, includeEmpty = true, includeZero = true, head
       .map(([key, value]) => {
           if (typeof value == "function")
               value = value();
+          if (value?.render !== undefined) {
+            let rendered = value.render(value);
+            if (Array.isArray(rendered))
+              rendered = rendered.map(elem => `<td>${elem}</td>`).join("")
+            else
+              rendered = `<td>${rendered}</td>`;
+            return `<tr><td>${niceify(key)}</td>${rendered}</tr>`
+          }
           return ((includeEmpty ||
               (value && value != "null")) &&
               (includeZero || (value != 0 && value != "0")))
@@ -721,31 +725,6 @@ function wrapDetails(title, contents, description) {
 
 function replaceNamespaces(namespace) {
   return COMMON_NAMESPACES[namespace] ?? namespace;
-}
-
-function loadTimings() {
-  let labels = [];
-  let data = [];
-
-  for (const [key, value] of Object.entries(game.timing)) {
-    labels.push(key);
-    data.push(value);
-  }
-
-  (async function () {
-    new Chart(document.getElementById('timing'), {
-      type: "doughnut",
-      label: "Load times",
-      data: {
-        labels: labels,
-        datasets: [
-          {
-            data: data,
-          },
-        ],
-      },
-    });
-  })();
 }
 
 function foundMod(found, score, reason) {
@@ -1075,12 +1054,14 @@ class Game {
     if (process.match(IGNORED_TIMINGS)) return;
     if (category) {
       this.timing[category] ??= {};
-      this.timing[category][process] ??= 0;
-      this.timing[category][process] += time;
+      this.timing[category][process] ??= { time: 0, count: 0, render: obj => [obj.time / obj.count + "s", obj.count]};
+      this.timing[category][process].time += time;
+      this.timing[category][process].count++;
     } else {
       this.timing.General ??= {};
-      this.timing.General[process] ??= 0;
-      this.timing.General[process] += time;
+      this.timing.General[process] ??= { time: 0, count: 0, render: obj => [obj.time / obj.count + "s", obj.count]};
+      this.timing.General[process].time += time;
+      this.timing.General[process].count++;
     }
   }
 
@@ -1174,15 +1155,11 @@ class Game {
   }
 
   async renderTimings() {
-    try {
-      return Object.entries(this.timing).map(this.renderTimeBlock).join("");
-    } catch (e) {
-      alert(e);
-    }
+    return Object.entries(this.timing).map(this.renderTimeBlock).join("");
   }
 
   renderTimeBlock([key, value]) {
-    return wrapDetails(key, objectToTable(value, "", false, true, ["Task", "Duration"], true));
+    return wrapDetails(key, objectToTable(value, "", false, true, ["Task", "Average Load Time", "Times Loaded"], (a, b) => (a[1].time / a[1].count) - (b[1].time / b[1].count)));
   }
 
   renderTime(title, width, color) {
@@ -1245,10 +1222,6 @@ class Game {
         "suggestion"
       );
     }
-  }
-
-  async renderTimingGraph() {
-    return [div(`<canvas id="timing"></canvas>`), loadTimings];
   }
 
   async renderTimeline() {
