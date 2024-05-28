@@ -96,39 +96,39 @@ const SUGGESTIONS = {
   "check-dll": {
     title: "Check your scripted mods for missing DLL files.",
     description:
-      "Sometimes, antivirus software can treat DLL files (which is where mod scripting and logic lives) as suspicious files. " +
-      "Double-check that your scripted mods each contain a .dll file.",
+    "Sometimes, antivirus software can treat DLL files (which is where mod scripting and logic lives) as suspicious files. " +
+    "Double-check that your scripted mods each contain a .dll file.",
     cols: ["mod", "possible_missing_dll_name"],
   },
   "missing-method": {
     title:
-      "Ensure your mods are up to date, or remove ones that aren't yet updated.",
+    "Ensure your mods are up to date, or remove ones that aren't yet updated.",
     description:
-      "One or more of your mods attempted to run code that doesn't exist in the version of the game you are running.<br>" +
-      "This may be because a minor version update broke it - e.g. if the mod worked on 12.2, but you updated to 12.3.",
+    "One or more of your mods attempted to run code that doesn't exist in the version of the game you are running.<br>" +
+    "This may be because a minor version update broke it - e.g. if the mod worked on 12.2, but you updated to 12.3.",
     cols: ["mods", "method"],
   },
   "broken-json": {
     title: "Fix syntax errors in your JSON file(s).",
     description:
     "One or more of your mods broke the game's JSON parser (likely due to a syntax error). If this is your mod, or if you've made changes to one of these JSON files, make sure they are valid.<br>" +
-     `You can paste your JSON file into <a href="https://jsonlint.com/">jsonlint.com</a> to debug syntax errors.`,
-     cols: ["mod", "json_file", "error"]
+    `You can paste your JSON file into <a href="https://jsonlint.com/">jsonlint.com</a> to debug syntax errors.`,
+    cols: ["mod", "json_file", "error"]
   },
   pirated: {
     title:
-      icon("warning") +
-      "Buy Blade and Sorcery legitimately on Steam or Oculus." +
-      icon("warning"),
+    icon("warning") +
+    "Buy Blade and Sorcery legitimately on Steam or Oculus." +
+    icon("warning"),
     description:
-      "<strong>Do not ask for help with modding if you own an illegitimate copy of the game.</strong><br>" +
-      "If you have pirated the game you should <em>not</em> expect mods to work.",
+    "<strong>Do not ask for help with modding if you own an illegitimate copy of the game.</strong><br>" +
+    "If you have pirated the game you should <em>not</em> expect mods to work.",
   },
   incompatible: {
     title:
-      "Make sure you have installed mods that are for the correct version of the game.",
+    "Make sure you have installed mods that are for the correct version of the game.",
     description:
-      "One or more of your mods is not for this version of the game. They have not been loaded.",
+    "One or more of your mods is not for this version of the game. They have not been loaded.",
   },
   "duplicate-bundle": {
     title: "Ensure you have not installed a mod multiple times.",
@@ -150,11 +150,11 @@ const SUGGESTIONS = {
 
 const EXCEPTIONS = {
   NullReferenceException:
-    "This exception is thrown when a property or method is accessed on a null object.",
+  "This exception is thrown when a property or method is accessed on a null object.",
   ArgumentOutOfRangeException:
-    "This exception is thrown when an argument to a method is outside the allowed range of values.",
+  "This exception is thrown when an argument to a method is outside the allowed range of values.",
   DllNotFoundException:
-    "This exception is thrown when a referenced DLL cannot be found.",
+  "This exception is thrown when a referenced DLL cannot be found.",
 };
 
 const EXCEPTION_TAGS = {
@@ -170,11 +170,11 @@ const EXCEPTION_TAGS = {
     icon: "screw-driver",
     text: "This exception likely comes from code injected using Harmony, and is NOT a base-game issue.",
     extra: () =>
-      "Possible causes:<br>" +
-      game.mods
-        .filter((mod) => mod.tags.has("harmony"))
-        .map((mod) => span(" - " + mod.name, "hover-mod-name"))
-        .join("<br>"),
+    "Possible causes:<br>" +
+    game.mods
+    .filter((mod) => mod.tags.has("harmony"))
+    .map((mod) => span(" - " + mod.name, "hover-mod-name"))
+    .join("<br>"),
   },
 };
 
@@ -274,8 +274,8 @@ async function maybeTakeABreak() {
 
 async function readFileText(file) {
   return new Promise((resolve, reject) => {
-  const reader = new FileReader();
-  reader.readAsText(file);
+    const reader = new FileReader();
+    reader.readAsText(file);
     reader.onload = () => {
       resolve(reader.result);
     }
@@ -398,8 +398,8 @@ function niceify(string) {
     .split(" ")
     .map((word) =>
       capitals.includes(word.toLowerCase())
-        ? word.toUpperCase()
-        : word[0].toUpperCase() + word.substr(1)
+      ? word.toUpperCase()
+      : word[0].toUpperCase() + word.substr(1)
     )
     .join(" ");
 }
@@ -480,24 +480,24 @@ function objectToTable(obj, title, includeEmpty = true, includeZero = true, head
     '<table class="auto-table">' +
     (headers ? `<tr>${headers.map(header => `<th>${header}</th>`).join("")}</tr>` : "") +
     entries
-      .map(([key, value]) => {
-          if (typeof value == "function")
-              value = value();
-          if (value?.render !== undefined) {
-            let rendered = value.render(value);
-            if (Array.isArray(rendered))
-              rendered = rendered.map(elem => `<td>${elem}</td>`).join("")
-            else
-              rendered = `<td>${rendered}</td>`;
-            return `<tr><td>${niceify(key)}</td>${rendered}</tr>`
-          }
-          return ((includeEmpty ||
-              (value && value != "null")) &&
-              (includeZero || (value != 0 && value != "0")))
-              ? `<tr><td>${niceify(key)}</td><td id="td-${key}">${renderValue(value)}</td></tr>`
-              : ""}
-      )
-      .join("") +
+    .map(([key, value]) => {
+      if (typeof value == "function")
+        value = value();
+      if (value?.render !== undefined) {
+        let rendered = value.render(value);
+        if (Array.isArray(rendered))
+          rendered = rendered.map(elem => `<td>${elem}</td>`).join("")
+        else
+          rendered = `<td>${rendered}</td>`;
+        return `<tr><td>${niceify(key)}</td>${rendered}</tr>`
+      }
+      return ((includeEmpty ||
+        (value && value != "null")) &&
+        (includeZero || (value != 0 && value != "0")))
+        ? `<tr><td>${niceify(key)}</td><td id="td-${key}">${renderValue(value)}</td></tr>`
+        : ""}
+    )
+    .join("") +
     "</table>"
   );
 }
@@ -511,13 +511,13 @@ function objectListToTable(list, keys, title, note) {
     '<table class="auto-table">' +
     `<tr>${keys.map((key) => `<th>${niceify(key)}</th>`).join("")}</tr>` +
     list
-      .map(
-        (obj) =>
-          `<tr>${keys
+    .map(
+      (obj) =>
+      `<tr>${keys
             .map((key) => `<td>${renderValue(obj[key])}</td>`)
             .join("")}</tr>`
-      )
-      .join("") +
+    )
+    .join("") +
     "</table>"
   );
 }
@@ -591,14 +591,14 @@ function screenshot(event, element, title) {
     expandException(element);
   }
   html2canvas(element
-  //  , {
-  //  ignoreElements: element => {
-  //    try {
-  //    element.style.transition = "";
-  //    } catch {}
-  //    return true;
-  //  }
-  //}
+    //  , {
+    //  ignoreElements: element => {
+    //    try {
+    //    element.style.transition = "";
+    //    } catch {}
+    //    return true;
+    //  }
+    //}
   ).then((canvas) => {
     canvas.toBlob(function (blob) {
       saveAs(blob, `${title}.png`);
@@ -620,7 +620,7 @@ function bold(string) {
 }
 
 function safe(unsafe) {
-    return unsafe.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
+  return unsafe.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 }
 
 function icon(name, tooltip, color) {
@@ -736,7 +736,7 @@ function copyLevelArgs(event, params) {
   if (!params) return;
   let target = event.target;
   let text = event.target.innerText;
-    target.classList.add("active");
+  target.classList.add("active");
   setTimeout(() => {
     // target.innerText = text;
     target.classList.remove("active");
@@ -744,34 +744,34 @@ function copyLevelArgs(event, params) {
   // event.target.innerText = "Copied!";
   navigator.clipboard.writeText(
     Object.entries(params)
-      .map(([key, value]) =>
-        key == "InstanceGuid"
-          ? null
-          : key == "level" || key == "gamemode"
-          ? `-${key} ${value}`
-          : `-leveloption ${key}=${value}`
-      )
-      .filter(elem => elem)
-      .join(" ")
+    .map(([key, value]) =>
+      key == "InstanceGuid"
+      ? null
+      : key == "level" || key == "gamemode"
+      ? `-${key} ${value}`
+      : `-leveloption ${key}=${value}`
+    )
+    .filter(elem => elem)
+    .join(" ")
   );
 }
 
 async function renderListOfEvents(container, list, title) {
-    container.replaceChildren();
-    let length = list.length;
-    const heading = createElement("h2", "search-title", undefined, title);
-    container.appendChild(heading);
-    const parent = createElement("div");
-    container.lastChild.appendChild(await searchBar(parent));
-    container.appendChild(parent);
-    for (let i = 0; i < length; i++) {
-      const div = document.createElement("div");
-      div.innerHTML = list[i].render();
-      parent.appendChild(div.firstChild);
-      div.remove();
-      setProgress(i / length * 100)
-      await maybeTakeABreak();
-    }
+  container.replaceChildren();
+  let length = list.length;
+  const heading = createElement("h2", "search-title", undefined, title);
+  container.appendChild(heading);
+  const parent = createElement("div");
+  container.lastChild.appendChild(await searchBar(parent));
+  container.appendChild(parent);
+  for (let i = 0; i < length; i++) {
+    const div = document.createElement("div");
+    div.innerHTML = list[i].render();
+    parent.appendChild(div.firstChild);
+    div.remove();
+    setProgress(i / length * 100)
+    await maybeTakeABreak();
+  }
 }
 
 class Game {
@@ -837,9 +837,9 @@ class Game {
   findModByNamespace(namespace) {
     let found = this.mods.filter(
       (mod) =>
-        Array.from(mod.namespaces).filter(
-          (each) => each.toLowerCase() == namespace.toLowerCase()
-        ).length > 0
+      Array.from(mod.namespaces).filter(
+        (each) => each.toLowerCase() == namespace.toLowerCase()
+      ).length > 0
     );
     if (found.length > 0) return foundMod(found[0], 0, "namespace");
     return foundMod();
@@ -848,9 +848,9 @@ class Game {
   findModByAssembly(assembly) {
     let found = this.mods.filter(
       (mod) =>
-        mod.assemblies.filter(
-          (eachAssembly) => eachAssembly.dll.toLowerCase() == assembly.toLowerCase() + ".dll"
-        ).length > 0
+      mod.assemblies.filter(
+        (eachAssembly) => eachAssembly.dll.toLowerCase() == assembly.toLowerCase() + ".dll"
+      ).length > 0
     );
     if (found.length > 0) return foundMod(found[0], 0, "assembly");
     return foundMod();
@@ -974,7 +974,7 @@ class Game {
       );
     if (this.timeline.length > 0)
       containers.mods.appendChild(
-          this.selector("Timeline", this.renderTimeline, this.timeline.length)
+        this.selector("Timeline", this.renderTimeline, this.timeline.length)
       );
     if (this.areas.length > 0) {
       containers.mods.appendChild(
@@ -1018,10 +1018,10 @@ class Game {
     this.mods
       .sort((a, b) =>
         a.name.toLowerCase() < b.name.toLowerCase()
-          ? -1
-          : a.name.toLowerCase() > b.name.toLowerCase()
-          ? 1
-          : 0
+        ? -1
+        : a.name.toLowerCase() > b.name.toLowerCase()
+        ? 1
+        : 0
       )
       .reverse();
     await maybeTakeABreak();
@@ -1128,12 +1128,12 @@ class Game {
   async render() {
     for (let entry of [
       this.incompatibleMods.length > 0
-        ? this.selector(
-            "Incompatible Mods",
-            this.renderIncompatibleMods,
-            this.incompatibleMods.length
-          )
-        : null,
+      ? this.selector(
+        "Incompatible Mods",
+        this.renderIncompatibleMods,
+        this.incompatibleMods.length
+      )
+      : null,
       this.baseGame?.hasAnything() ? this.baseGame.renderList(true) : null,
       createHR(),
     ].filter((elem) => elem != null)) {
@@ -1141,7 +1141,7 @@ class Game {
     }
     let startProgress = PROGRESS_READ + PROGRESS_FINISH + PROGRESS_SORT;
     let i = 0;
-    
+
     for (let mod of this.mods) {
       containers.mods.appendChild(mod.renderList());
       await maybeTakeABreak();
@@ -1175,21 +1175,21 @@ class Game {
           this.info.parse_time / this.info.total_time,
           "neutral_blue"
         ) +
-          this.renderTime(
-            "Process",
-            this.info.process_time / this.info.total_time,
-            "neutral_green"
-          ) +
-          this.renderTime(
-            "Sort",
-            this.info.sort_time / this.info.total_time,
-            "neutral_red"
-          ) +
-          this.renderTime(
-            "Render",
-            this.info.render_time / this.info.total_time,
-            "neutral_yellow"
-          ),
+        this.renderTime(
+          "Process",
+          this.info.process_time / this.info.total_time,
+          "neutral_green"
+        ) +
+        this.renderTime(
+          "Sort",
+          this.info.sort_time / this.info.total_time,
+          "neutral_red"
+        ) +
+        this.renderTime(
+          "Render",
+          this.info.render_time / this.info.total_time,
+          "neutral_yellow"
+        ),
         "time-container pad"
       )
     );
@@ -1210,15 +1210,15 @@ class Game {
     if (suggestion.cols) {
       return div(
         heading(renderFunc(suggestion.title), 3) +
-          div(renderFunc(suggestion.description), "suggestion-text") +
-          objectListToTable(reasons, suggestion.cols),
+        div(renderFunc(suggestion.description), "suggestion-text") +
+        objectListToTable(reasons, suggestion.cols),
         "suggestion"
       );
     } else {
       return div(
         heading(renderFunc(suggestion.title), 3) +
-          div(renderFunc(suggestion.description), "suggestion-text") +
-          (reasons.length > 0 ? ul(reasons, "suggestion-reasons") : ""),
+        div(renderFunc(suggestion.description), "suggestion-text") +
+        (reasons.length > 0 ? ul(reasons, "suggestion-reasons") : ""),
         "suggestion"
       );
     }
@@ -1240,7 +1240,7 @@ class Game {
   async renderInventories() {
     return div(Object.entries(this.inventories).map(([inventory, list]) => {
       return div(div(inventory, "area-title")
-      + div(list.map(elem => div(code(elem.id), `inventory-entry-${elem.type}`)).join(""), "area-list"), "area-set")
+        + div(list.map(elem => div(code(elem.id), `inventory-entry-${elem.type}`)).join(""), "area-list"), "area-set")
     }))
   }
 
@@ -1284,8 +1284,8 @@ class Game {
         createDiv("mod-errors", {}, [
           countWarn > 0 ? createSpan("mod-error-count", {}, countWarn) : null,
           countError > 0
-            ? createSpan("mod-exception-count", {}, countError)
-            : null,
+          ? createSpan("mod-exception-count", {}, countError)
+          : null,
         ]),
       ])
     );
@@ -1345,7 +1345,7 @@ class Mod {
     });
     if (
       this.assemblies.filter((assembly) => assembly.dll == "0Harmony.dll")
-        .length > 0
+      .length > 0
     )
       this.tags.add("harmony");
     this.time = Date.now() - start;
@@ -1419,14 +1419,14 @@ class Mod {
         author: this.author,
         folder: code(this.folder),
         namespaces: Array.from(this.namespaces)
-          .map((namespace) => code(namespace))
-          .join(", "),
+        .map((namespace) => code(namespace))
+        .join(", "),
         assemblies: this.assemblies
-          .map((assembly) => code(assembly.dll))
-          .join(", "),
+        .map((assembly) => code(assembly.dll))
+        .join(", "),
         catalogs: this.catalogs
-          .map((catalog) => code(catalog.catalog))
-          .join(", "),
+        .map((catalog) => code(catalog.catalog))
+        .join(", "),
         tags: [...this.tags].join(", "),
         thunderscripts: this.thunderscripts.map(({namespace, class_name}) => namespace + "." + class_name).join(", "),
         mod_options: this.modOptions
@@ -1508,7 +1508,7 @@ class Exception {
   }
 
   getHash() {
-  let slug = (this.type + this.eventType + this.error + this.lines.map(line => line.getHash()).join("") + this.extra).toString();
+    let slug = (this.type + this.eventType + this.error + this.lines.map(line => line.getHash()).join("") + this.extra).toString();
     return (this.type + this.eventType + this.error + this.lines.map(line => line.getHash()).join("") + this.extra).toString().hashCode();
   }
 
@@ -1541,19 +1541,19 @@ class Exception {
         (groups) => {
           this.error = groups.prefix + code(groups.shortFolder);
           let mod;
-            match(
-              groups.bundle,
-              /(?<catalog>.+?)_(assets_all|unitybuiltinshaders).bundle/,
-              (groups) => {
-                let { found, score, reason } = game.findModByCatalog(
-                  groups.catalog
-                );
-                if (found) {
-                  this.modReasons[found.folder] = { reason, score };
-                  mod = found;
-                }
+          match(
+            groups.bundle,
+            /(?<catalog>.+?)_(assets_all|unitybuiltinshaders).bundle/,
+            (groups) => {
+              let { found, score, reason } = game.findModByCatalog(
+                groups.catalog
+              );
+              if (found) {
+                this.modReasons[found.folder] = { reason, score };
+                mod = found;
               }
-            );
+            }
+          );
           if (!mod) {
             let { found, score, reason } = game.findModByFolder(groups.folder);
             if (found) {
@@ -1566,21 +1566,21 @@ class Exception {
             foundMod = true;
           }
           if (match(
-              this.prevLine,
-              /The AssetBundle '(?<bundle>.+?)' can't be loaded because (?<reason>.+)/,
-              ({ bundle, reason }) => {
-                switch (reason) {
-                  case "another AssetBundle with the same files is already loaded.":
-                    game.addSuggestion("duplicate-bundle", { mod: mod.name, duplicate_bundle_found: bundle })
-                    break;
-                  case "it was not built with the right version or build target.":
-                    game.addSuggestion("bundle-version", { mod: mod.name, bundle: bundle })
-                    break;
-                }
+            this.prevLine,
+            /The AssetBundle '(?<bundle>.+?)' can't be loaded because (?<reason>.+)/,
+            ({ bundle, reason }) => {
+              switch (reason) {
+                case "another AssetBundle with the same files is already loaded.":
+                  game.addSuggestion("duplicate-bundle", { mod: mod.name, duplicate_bundle_found: bundle })
+                  break;
+                case "it was not built with the right version or build target.":
+                  game.addSuggestion("bundle-version", { mod: mod.name, bundle: bundle })
+                  break;
               }
-            )
+            }
           )
-          mod?.invalidPaths.push(groups.bundle);
+          )
+            mod?.invalidPaths.push(groups.bundle);
         }
       );
       match(
@@ -1712,16 +1712,16 @@ class Exception {
 
   renderPreview() {
     if (this.tags.has("modded")) {
-    return (
-      this.lines
+      return (
+        this.lines
         .find((line) => line.modded && line.priority)
         ?.renderPreview() ?? this.lines[0].renderPreview()
-    );
+      );
     } else {
       return (
         this.lines
-          .find((line) => line.priority)
-          ?.renderPreview() ?? this.lines[0].renderPreview()
+        .find((line) => line.priority)
+        ?.renderPreview() ?? this.lines[0].renderPreview()
       );
     }
   }
@@ -1742,7 +1742,7 @@ class Exception {
                     ${Array.from(this.tags)
                       .map(
                         (tag) =>
-                          `<i class="tag icofont-${
+                        `<i class="tag icofont-${
                             EXCEPTION_TAGS[tag].icon
                           }"><p>${
                             EXCEPTION_TAGS[tag].text +
@@ -1766,11 +1766,11 @@ class Exception {
                       [...this.mods].length > 0
                         ? `${[...this.mods]
                             .map((mod) => span(mod.name + modCertaintyIcon(this.modReasons[mod.folder].score),
-                                               `exception-mod reason-${this.modReasons[mod.folder].reason} certainty-${modCertainty(this.modReasons[mod.folder].score)}`,
-                                               {
-                                               title: getCertainty(this.modReasons[mod.folder].score) + " " + getReason(this.modReasons[mod.folder].reason, this.modReasons[mod.folder].score),
-                                               onclick: `clickButton('${mod.getButtonLink()}')`
-                                               }))
+                              `exception-mod reason-${this.modReasons[mod.folder].reason} certainty-${modCertainty(this.modReasons[mod.folder].score)}`,
+                              {
+                                title: getCertainty(this.modReasons[mod.folder].score) + " " + getReason(this.modReasons[mod.folder].reason, this.modReasons[mod.folder].score),
+                                onclick: `clickButton('${mod.getButtonLink()}')`
+                              }))
                             .join(" ")}`
                         : ""
                     }
@@ -1838,7 +1838,7 @@ class ExceptionLine {
           x[1].replace(
             /<(.+)>/g,
             (_, type) =>
-              `${type.split(".").pop()}`
+            `${type.split(".").pop()}`
           )
         )
         .filter((x) => x != "ctor");
@@ -1856,13 +1856,13 @@ class ExceptionLine {
           x[1].replace(
             /<(.+)>/,
             (_, type) =>
-              ` <span class="dim">&lt;${type.split(".").pop()}&gt;</span>`
+            ` <span class="dim">&lt;${type.split(".").pop()}&gt;</span>`
           )
         )
         .map((x) =>
           x == "ctor"
-            ? '<span class="italic">constructor</span>'
-            : (x == "lambda" ? '<span class="italic dim">inline</span>' : `<span>${x}</span>`)
+          ? '<span class="italic">constructor</span>'
+          : (x == "lambda" ? '<span class="italic dim">inline</span>' : `<span>${x}</span>`)
         )
         .join(`<span class="dim"> > </span>`);
       let argsPart = [];
@@ -1930,13 +1930,13 @@ class ExceptionLine {
           x[1].replace(
             /<(.+)>/,
             (_, type) =>
-              ` <span class="dim">&lt;${type.split(".").pop()}&gt;</span>`
+            ` <span class="dim">&lt;${type.split(".").pop()}&gt;</span>`
           )
         )
         .map((x) =>
           x == "ctor"
-            ? '<span class="italic">constructor</span>'
-            : `<span class="func-part func-part-${funcPart.length - (i++)}">${x}</span>`
+          ? '<span class="italic">constructor</span>'
+          : `<span class="func-part func-part-${funcPart.length - (i++)}">${x}</span>`
         );
       funcPart = funcPart
         .slice(funcPart.length - 2)
@@ -2064,22 +2064,22 @@ class TimelineEvent {
         });
         desc.push("</div>");
       } else {
-      Object.keys(this.props).forEach((key) => {
-        if (this.props[key] !== undefined)
-          desc.push(
-            `<div class="split event-prop thin"><span class="dim">${niceify(
-              key
-            )}</span><span class="select align-right">${renderValue(
-              this.props[key]
-            )}</span></div>`
-          );
-      });
+        Object.keys(this.props).forEach((key) => {
+          if (this.props[key] !== undefined)
+            desc.push(
+              `<div class="split event-prop thin"><span class="dim">${niceify(
+                key
+              )}</span><span class="select align-right">${renderValue(
+                this.props[key]
+              )}</span></div>`
+            );
+        });
       }
     return `<div class="global event ${this.color ?? ""}" onclick="expandException(this)" data-keywords="${this.keywords}" data-params='${JSON.stringify(this.params)}'>
               <div class="event-container">
                     <div class="event-title">${span((this.count > 1
-                        ? `<span class="fade count normal">${this.count}x</span>`
-                        : "") +
+                      ? `<span class="fade count normal">${this.count}x</span>`
+                      : "") +
                       this.text)}${this.metadata ? span(getTimestamp(this.metadata), "event-time") : ""}</div>
                     ${
                       desc.length > 0
@@ -2109,7 +2109,7 @@ function setupProgressDisplay() {
     suggestions_found: () => Object.keys(game.suggestions).length,
     levels_loaded: () => game.levels.length,
     areas_traversed: () =>
-      game.areas.map((list) => list.length - 2).reduce(reduceNumber, 0),
+    game.areas.map((list) => list.length - 2).reduce(reduceNumber, 0),
   };
 }
 
@@ -2318,9 +2318,9 @@ async function parse(file) {
             line,
             /\[ModManager\]\[ThunderScript\]\[(?<mod>.+?)\] Loaded ThunderScript: (?<namespace>.+?)\.(?<class_name>.+?) on mod:.+/,
             ({ mod, namespace, class_name }) =>
-              game
-                .findOrCreateMod(mod)
-                .found.thunderscripts.push({ namespace, class_name })
+            game
+            .findOrCreateMod(mod)
+            .found.thunderscripts.push({ namespace, class_name })
           )
         )
           return;
@@ -2396,11 +2396,11 @@ async function parse(file) {
             )) {
               let mod = game.findOrCreateMod(path.split(/\\/)[0]).found;
               mod.addInvalidJson(path, json, error);
-                game.addSuggestion("broken-json", {
-                  mod: mod.name,
-                  json_file: code(json),
-                  error: div(error, "json")
-                });
+              game.addSuggestion("broken-json", {
+                mod: mod.name,
+                json_file: code(json),
+                error: div(error, "json")
+              });
             }
           }
         )) return;
@@ -2711,8 +2711,8 @@ async function parse(file) {
             if (game.lastEvent?.text == "System out of memory!") {
               game.lastEvent.props.bytes =
                 groups.bytes > 1000
-                  ? Math.round(groups.bytes / 1000) + " MB"
-                  : groups.bytes + " bytes";
+                ? Math.round(groups.bytes / 1000) + " MB"
+                : groups.bytes + " bytes";
               game.lastEvent.props.label = groups.label;
             }
           }
