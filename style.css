@@ -410,6 +410,11 @@ pre#directory, pre.directory {
     top: 10px;
 }
 
+.mod-title {
+    overflow-x: hidden;
+    text-overflow: ellipsis;
+}
+
 .mod-error-count {
     padding: 5px;
     margin-left: 5px;
