@@ -300,7 +300,7 @@ async function readFileLines(file, callback) {
 
       leftover = "";
     }
-    leftover = slices[slices.length - 1];
+    leftover += slices[slices.length - 1];
     index += SLICE_SIZE;
   }
 }
@@ -735,13 +735,10 @@ function copyLevelArgs(event, params) {
   event.stopPropagation();
   if (!params) return;
   let target = event.target;
-  let text = event.target.innerText;
   target.classList.add("active");
   setTimeout(() => {
-    // target.innerText = text;
     target.classList.remove("active");
   }, 1000);
-  // event.target.innerText = "Copied!";
   navigator.clipboard.writeText(
     Object.entries(params)
     .map(([key, value]) =>
@@ -904,9 +901,14 @@ class Game {
 
   begin() {
     if (this.begun) return;
+    if (this.system.platform === "pirated") {
+      this.system.platform =
+        icon("warning", undefined, "color-warning") + "Pirated";
+
+    }
     if (this.system.platform === null) {
       this.system.platform =
-        icon("warning", undefined, "color-warning") + "Unknown - Pirated?";
+        icon("question", undefined, "color-warning") + "Unknown, possibly pirated";
       this.addSuggestion("pirated");
     }
     this.baseGame = new Mod("Base Game", "N/A");
@@ -2094,9 +2096,9 @@ class TimelineEvent {
 }
 
 function match(line, re, callback) {
-  let match = line.match(re);
-  if (match && callback) callback(match.groups);
-  return match != null;
+  let found = line.match(re);
+  if (found && callback) callback(found.groups);
+  return found != null;
 }
 
 let currentLines = 0;
@@ -2137,6 +2139,11 @@ async function parse(file) {
   let lastStatus = 0;
 
   async function parseLine(line, index, size) {
+    console.log("START " + line)
+    if (line.startsWith("[bHaptics] Initialize()")) {
+      console.log("Boop");
+      return;
+    }
     line = (line
       .replace(/^\d+-\d+-\d+T\d+:\d+:\d+\.\d+(: [A-Z]+ .+? *: | \d+:\d+:\d+.\d+\s+\d+\s+\d+ [A-Z] Unity\s+: )/g, "")
       .replace(/\//g, "\\")
@@ -2154,7 +2161,7 @@ async function parse(file) {
     match(
       line,
       /^\d+-\d+-\d+T\d+:\d+:\d+.\d+Z (?<line>.+)/,
-      (groups) => (line = groups.line)
+      ({ log }) => line = log
     );
 
     prev = nextPrev;
@@ -2784,28 +2791,30 @@ function matchSystemInfo(line) {
   }));
 
   if (match(line, /^Mono path\[0\] = '.+(Oculus)?\\Software.+/i, () => {
-    game.system.platform = "Oculus";
+    game.system.platform ??= "Oculus";
   })) return true;
   if (match(line, /^Mono path\[0\] = '.+\\steamapps\\common.+/i, () => {
-    game.system.platform = "Steam";
+    game.system.platform ??= "Steam";
   })) return true;
   if (match(line, /^Mono path\[0\] = '.+(Downloads|Desktop).*\\steamapps\\common.+/i, () => {
-    game.system.platform = null;
+    game.system.platform = "pirated";
   })) return true;
   if (match(line, /^Successfully loaded content catalog at path (?<path>.+)'$/, (groups) => {
     game.system.game_directory = groups.path.replace(/\\/g, "/");
   })) return true;
   if (match(line, /^Successfully loaded content catalog at path .+(Oculus)?\\Software.+/i, () => {
-    game.system.platform = "Oculus";
+    game.system.platform ??= "Oculus";
   })) return true;
   if (match(line, /^Successfully loaded content catalog at path .+\\steamapps\\common.+/i, () => {
-    game.system.platform = "Steam";
+    game.system.platform ??= "Steam";
   })) return true;
   if (match(line, /^Successfully loaded content catalog at path .+(Downloads|Desktop).*\\steamapps\\common.+/i, () => {
-    game.system.platform = null;
+    game.system.platform = "pirated";
   })) return true;
   if (match(line, /^Game version: (?<version>.+)/, (groups) => {
     game.system.version = groups.version;
+    if (game.system.version.startsWith("0.12.2"))
+      game.system.platform = "pirated";
   })) return true;
   if (match(line, /^Initialize engine version: (?<version>.+) \(.+\)/, (groups) => {
     game.system.unity_version = groups.version;
@@ -2834,7 +2843,7 @@ function matchSystemInfo(line) {
     game.system.gpu_driver = groups.driver;
   })) return true;
   if (match(line, /^Platform \[Android\] initialized/, () => {
-    game.system.platform = "Nomad";
+    game.system.platform ??= "Nomad";
   })) return true;
   return false;
 }
