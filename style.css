@@ -553,6 +553,7 @@ pre#directory, pre.directory {
 
 .exception-title {
     flex-shrink: 0;
+    word-break: break-word;
 }
 
 .label-div {
