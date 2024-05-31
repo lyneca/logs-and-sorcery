@@ -790,6 +790,7 @@ th {
 td {
     padding: 10px;
     vertical-align: top;
+    word-break: break-word;
 }
 p {
     margin: 0;
