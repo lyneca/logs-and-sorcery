@@ -250,6 +250,8 @@ fileInput.addEventListener("drop", (e) => {
   loadFile(e.dataTransfer.files[0]);
 });
 fileInput.addEventListener("click", (e) => {
+  e.preventDefault();
+  e.stopPropagation();
   fileClickInput.click();
 });
 fileClickInput.addEventListener("change", async (e) => {

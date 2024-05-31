@@ -188,6 +188,8 @@ li {
     color: rgba(0, 0, 0, 0.5);
     padding-left: 10px;
     font-family: "Fira Code", monospace;
+    overflow-x: hidden;
+    text-overflow: ellipsis;
 }
 
 .time-block:first-child {
