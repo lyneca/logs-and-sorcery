@@ -2648,6 +2648,17 @@ async function parse(file) {
           }
         )) return;
 
+        // Match screenshot taken
+        if (match(
+          line,
+          /Saved screenshot to: (?<path>.+)\\(?<file>[^\\]+?.jpg)/,
+          ({path, file}) => {
+            let camera = undefined;
+            match(prev, /Taking a screenshot from camera: (?<cam>.+)/, ({cam}) => camera = cam);
+            game.addEvent("Screenshot taken", undefined, {path, file, camera}, "color-skills");
+          }
+        )) return;
+
         // Match game load events
         if (match(line, /Game started in (?<time>.+) sec/, (groups) => {
           game.addEvent(`Game starting`, undefined, {
