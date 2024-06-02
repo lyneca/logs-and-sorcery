@@ -2648,6 +2648,15 @@ async function parse(file) {
           }
         )) return;
 
+        // Match noodlemen
+        if (match(
+          line,
+          /Creating cap mesh for renderer (?<renderer>.+?) that doesn't have a valid root bone index!/,
+          ({renderer}) => {
+            game.addEvent("Noodlemen Detected", `You probably saw some eldritch horrors, sorry about that!`, {renderer: `<code>${renderer}</code>`}, "color-error")
+          }
+        )) return;
+
         // Match screenshot taken
         if (match(
           line,

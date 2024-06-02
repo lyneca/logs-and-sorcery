@@ -844,6 +844,11 @@ code.padded {
     color: var(--fg);
 }
 
+.color-error {
+  background-color: var(--error);
+  color: var(--fg);
+}
+
 .color-fatal {
     background-color: var(--fatal);
 }
