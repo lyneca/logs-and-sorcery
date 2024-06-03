@@ -234,29 +234,32 @@ const fileInput = document.querySelector("#file-input");
 const fileClickInput = document.getElementById("file-click-input");
 const statusDiv = document.getElementById("status")
 const progressBar = document.getElementById("progress-bar")
-fileInput.addEventListener("dragenter", (_) => {
-  fileInput.classList.add("dragging");
-});
-fileInput.addEventListener("dragleave", (_) => {
-  fileInput.classList.remove("dragging");
-});
-fileInput.addEventListener("dragover", (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-});
-fileInput.addEventListener("drop", (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  loadFile(e.dataTransfer.files[0]);
-});
-fileInput.addEventListener("click", (e) => {
-  e.preventDefault();
-  e.stopPropagation();
-  fileClickInput.click();
-});
-fileClickInput.addEventListener("change", async (e) => {
-  await loadFile(e.target.files[0]);
-});
+
+if (fileInput) {
+  fileInput.addEventListener("dragenter", (_) => {
+    fileInput.classList.add("dragging");
+  });
+  fileInput.addEventListener("dragleave", (_) => {
+    fileInput.classList.remove("dragging");
+  });
+  fileInput.addEventListener("dragover", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  });
+  fileInput.addEventListener("drop", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    loadFile(e.dataTransfer.files[0]);
+  });
+  fileInput.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    fileClickInput.click();
+  });
+  fileClickInput.addEventListener("change", async (e) => {
+    await loadFile(e.target.files[0]);
+  });
+}
 
 var lastBreak = Date.now()
 let startTime = Date.now();
@@ -312,9 +315,11 @@ async function sleep(duration) {
 }
 
 function hideStatus() {
+  if (!statusDiv) return;
   statusDiv.style.display = "none";
 }
 function setStatus(text) {
+  if (!statusDiv) return;
   statusDiv.style.display = "block";
   statusDiv.innerText = text + (text.endsWith('%') ? '' : "...");
 }
@@ -322,6 +327,7 @@ function setStatus(text) {
 let isSmooth = true;
 
 function setProgress(amount, force = false) {
+  if (!progressBar) return;
   if (amount == 0) progressBar.style.opacity = 1;
   if (amount == 100) progressBar.style.opacity = 0;
   if (force != isSmooth) {
@@ -856,6 +862,7 @@ class Game {
   }
 
   fuzzyFindMod(mod) {
+    if (!mod) return null;
     mod = replaceNamespaces(mod.replace(/^Spell/, ""));
     if (!game.modFinder)
       this.updateModFinder();
@@ -946,8 +953,8 @@ class Game {
       let {year, month, day, hour, minute, second, ms, level} = this.startMetadata;
       this.system.start_time = new Date(year, month, day, hour, minute, second, ms).toString();
     }
-    containers.mods.replaceChildren([]);
-    containers.mods.appendChild(this.selector("System Info", this.renderGameInfo));
+    containers.mods?.replaceChildren([]);
+    containers.mods?.appendChild(this.selector("System Info", this.renderGameInfo));
     this.maxCount =
       this.exceptions.length +
       this.mods.length + 1 +
@@ -2141,9 +2148,7 @@ async function parse(file) {
   let lastStatus = 0;
 
   async function parseLine(line, index, size) {
-    console.log("START " + line)
     if (line.startsWith("[bHaptics] Initialize()")) {
-      console.log("Boop");
       return;
     }
     line = (line

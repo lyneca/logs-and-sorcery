@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <!-- Responsive -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimal-ui">
+    
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+
+    <!-- Title -->
+    <title>Logs &amp; Sorcery</title>
+
+    <!-- Meta Tags requred for Progressive Web App -->
+    <meta name="apple-mobile-web-app-status-bar" content="#aa7700">
+    <meta name="theme-color" content="black">
+
+    <!-- Manifest File link -->
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/x-icon" href="/logs-and-sorcery/favicon.ico">
+
+    <link rel="stylesheet" href="icofont.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code&family=Ubuntu+Sans&family=Open+Sans&family=Nova+Cut&family=Roboto&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="gruvbox.css">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="hint.css">
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+    <script async src="https://www.googletagmLogsanager.com/gtag/js?id=G-NNSE7T1WQY"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.0/FileSaver.min.js" integrity="sha512-csNcFYJniKjJxRWRV1R7fvnXrycHP6qDR21mgz1ZP55xY5d+aHLfo9/FcGDQLfn2IfngbAHd8LdfsagcCqgTcQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
+    <script src=" https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js "></script>
+    <script type="text/javascript" src="imurmurhash.min.js"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag() { dataLayer.push(arguments); }
+        gtag('js', new Date());
+        gtag('config', 'G-NNSE7T1WQY');
+    </script>
+</head>
+
+<body>
+    <input type="file" id="file-click-input" style="position:fixed;top:-1000px"></input>
+    <main>
+        <h1>Logs &amp; Sorcery</h1>
+        <h2>Exception Renderer</h2>
+        <textarea id="exception"></textarea>
+        <section class="analysis">
+            <div id="mod-details">
+              <div></div>
+            </div>
+        </section>
+
+    </main>
+    <script src="parse.js"></script>
+    <script src="exception.js"></script>
+</body>
+
+</html>
+
