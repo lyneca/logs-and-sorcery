@@ -364,14 +364,6 @@ async function loadFile(file) {
     document.querySelector(".help").style.display = "none";
   });
   setProgress(0, true);
-  // let lines = await readFileText(file);
-  // lines = lines.replace(/\r\n/g, "\n")
-  //   .split(/\n/)
-  //   .map((line) =>
-  //     line.replace(/^\d+-\d+-\d+T\d+:\d+:\d+\.\d+: [A-Z]+ .+? *: /g, "")
-  //       .replace(/^\d+-\d+-\d+T\d+:\d+:\d+\.\d+ \d+:\d+:\d+.\d+\s+\d+\s+\d+ [A-Z] Unity\s+: /g, "")
-  //     // 2023-11-19T01:45:22.635 INFO UnityEngine.SetupCoroutine.InvokeMoveNext       : Load options...
-  //   );
   let totalTimeStart = parseStart = Date.now();
   setStatus("Parsing log lines")
   await parse(file);
