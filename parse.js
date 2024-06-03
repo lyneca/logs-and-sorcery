@@ -1708,7 +1708,7 @@ class Exception {
     let keywords;
     if (this.lines)
       keywords = new Set(
-        this.lines.map((line) => line.getParts()).reduce((a, b) => [...a, ...b], [])
+        this.lines.map((line) => line.getParts().func).reduce((a, b) => [...a, ...b], [])
       );
     else keywords = new Set();
     keywords.add(this.type);
@@ -1844,119 +1844,107 @@ class ExceptionLine {
   getParts() {
     const funcSig = this.location.match(/(?<func>.+?) ?\((?<args>.+)?\)/);
     if (funcSig) {
-      return [...funcSig.groups.func.matchAll(/(\w+(<.+?>)?)(?:[^:. ()]+)?/g)]
-        .map((x) =>
+      return {
+        func: [
+          ...funcSig.groups.func
+          .replace(/\+<(?<method>.+?)>.+?\.MoveNext/g, (_, method) => {return `.${method}.MoveNext`})
+          .replace(/\+<>.+?\.<(?<method>.+?)>[^\. ]+/g, (_, method) => {return `.${method}.lambda`})
+          .matchAll(/(\w+(<.+?>)?)(?:[^:. ()]+)?/g),
+        ].map((x) =>
           x[1].replace(
             /<(.+)>/g,
             (_, type) =>
             `${type.split(".").pop()}`
           )
-        )
-        .filter((x) => x != "ctor");
+        ),
+        args: funcSig.groups.args ?? ""
+      };
     }
-    return [];
+    return {};
+  }
+
+  renderFuncPath(parts, filter) {
+    let i = 0;
+    return parts
+      .map((x) =>
+        x.replace(
+          /<(.+)>/,
+          (_, type) =>
+          ` <span class="dim">&lt;${type.split(".").pop()}&gt;</span>`
+        )
+      )
+      .filter(filter ?? (_ => true))
+      .map((x) => {
+        switch (x) {
+          case "ctor": return '<span class="italic">constructor</span>';
+          case "MoveNext": return '<span class="fade">MoveNext</span>';
+          default: return `<span class="func-part func-part-${parts.length - (i++)}">${x}</span>`;
+        }
+      });
   }
 
   getPath() {
-    const funcSig = this.location.match(/(?<func>.+?) ?\((?<args>.+)?\)/);
-    if (funcSig) {
-      const funcPart = [
-        ...funcSig.groups.func.replace(/\+<>.+?\.<(?<method>.+?)>[^\.]+/, (_, method) => {return `.${method}.lambda`}).matchAll(/(\w+(<.+?>)?)(?:[^:. ()]+)?/g),
-      ]
-        .map((x) =>
-          x[1].replace(
-            /<(.+)>/,
-            (_, type) =>
-            ` <span class="dim">&lt;${type.split(".").pop()}&gt;</span>`
-          )
-        )
-        .map((x) =>
-          x == "ctor"
-          ? '<span class="italic">constructor</span>'
-          : (x == "lambda" ? '<span class="italic dim">inline</span>' : `<span>${x}</span>`)
-        )
-        .join(`<span class="dim"> > </span>`);
-      let argsPart = [];
-      if (funcSig.groups.args)
-        argsPart = [
-          ...funcSig.groups.args.matchAll(
-            /(?:([^`, ]+)[^, ]*( ([^`, ]+)[^ ,]*)?)/g
-          ),
-        ].map((x) => x[1] + (x[2] ? x[2] : ""));
-      let argsString = "";
-      argsPart = argsPart.map((part) => {
-        let argPortions = [
-          ...part.split(" ")[0].matchAll(/(\w+(\.|\+|\\)?)/g),
-        ].map((x) => x[1]);
-        if (argPortions.length > 1) {
-          let portions = argPortions
-            .slice(0, argPortions.length - 1)
-            .map((portion) => portion.replace(/\+|\\|\//g, "."))
-            .filter((portion) => IGNORED_ARGS.indexOf(portion) == -1)
-            .map((portion) => `<span class="arg dim">${portion}</span>`);
-          portions.push(
-            `<span class="arg type">${this.replaceArgTypes(
-              argPortions[argPortions.length - 1]
-            )}</span>`
-          );
-          return (
-            portions.join("") +
-            (part.split(" ").length > 1
-              ? ` <span class="arg name">${part.split(" ")[1]}</span>`
-              : "")
-          );
-        } else {
-          return `<span class="arg type">${this.replaceArgTypes(
-            argPortions[0]
-          )}</span>${
+    const {func, args} = this.getParts();
+    let funcPart = this.renderFuncPath(func).join(`<span class="dim"> > </span>`);
+    let argsPart = [];
+    argsPart = [
+      ...args.matchAll(
+        /(?:([^`, ]+)[^, ]*( ([^`, ]+)[^ ,]*)?)/g
+      ),
+    ].map((x) => x[1] + (x[2] ? x[2] : ""));
+    let argsString = "";
+    argsPart = argsPart.map((part) => {
+      let argPortions = [
+        ...part.split(" ")[0].matchAll(/(\w+(\.|\+|\\)?)/g),
+      ].map((x) => x[1]);
+      if (argPortions.length > 1) {
+        let portions = argPortions
+          .slice(0, argPortions.length - 1)
+          .map((portion) => portion.replace(/\+|\\|\//g, "."))
+          .filter((portion) => IGNORED_ARGS.indexOf(portion) == -1)
+          .map((portion) => `<span class="arg dim">${portion}</span>`);
+        portions.push(
+          `<span class="arg type">${this.replaceArgTypes(
+            argPortions[argPortions.length - 1]
+          )}</span>`
+        );
+        return (
+          portions.join("") +
+          (part.split(" ").length > 1
+            ? ` <span class="arg name">${part.split(" ")[1]}</span>`
+            : "")
+        );
+      } else {
+        return `<span class="arg type">${this.replaceArgTypes(
+          argPortions[0]
+        )}</span>${
             part.split(" ").length > 1
               ? ` <span class="arg name">${part.split(" ")[1]}</span>`
-              : ""
+            : ""
           }`;
-        }
-      });
-      argsPart = argsPart.map((x) =>
-        x.replace(/(\.\w+)/g, `<span class="arg">$1</span>`)
-      );
-      argsString = argsPart
-        .map((part) => `${part}`)
-        .join(`<span class="dim">,</span>|`)
-        .split("|")
-        .map((part) => `<span class="no-break">${part}</span>`)
-        .join(" ");
-      return `${funcPart} <span>(</span>${argsString}<span>)</span>`;
-    }
-    return this.location;
+      }
+    });
+    argsPart = argsPart.map((x) =>
+      x.replace(/(\.\w+)/g, `<span class="arg">$1</span>`)
+    );
+    argsString = argsPart
+      .map((part) => `${part}`)
+      .join(`<span class="dim">,</span>|`)
+      .split("|")
+      .map((part) => `<span class="no-break">${part}</span>`)
+      .join(" ");
+    return `${funcPart} <span>(</span>${argsString}<span>)</span>`;
   }
 
   getShortPath() {
-    const funcSig = this.location.match(/(?<func>.+?) ?\((?<args>.+)?\)/);
-    if (funcSig) {
-      let i = 0;
-      let funcPart = [
-        ...funcSig.groups.func.matchAll(/(\w+(<.+?>)?)(?:[^:. ()]+)?/g),
-      ];
-      funcPart = funcPart
-        .map((x) =>
-          x[1].replace(
-            /<(.+)>/,
-            (_, type) =>
-            ` <span class="dim">&lt;${type.split(".").pop()}&gt;</span>`
-          )
-        )
-        .map((x) =>
-          x == "ctor"
-          ? '<span class="italic">constructor</span>'
-          : `<span class="func-part func-part-${funcPart.length - (i++)}">${x}</span>`
-        );
-      funcPart = funcPart
-        .slice(funcPart.length - 2)
-        .join(`<span class="dim func-part-arrow"> > </span>`);
-      if (this.filename && this.line >= 0)
-        funcPart += `<span class="preview-filename"><span class="dim"> ~ </span><span class="dim">${this.shortFileName()}:${this.line}</span></span>`;
-      return `${funcPart}`;
-    }
-    return this.location;
+    const {func} = this.getParts();
+    let funcPart = this.renderFuncPath(func, (x) => x != "MoveNext" && x != "ctor");
+    funcPart = funcPart
+      .slice(funcPart.length - 2)
+      .join(`<span class="dim func-part-arrow"> > </span>`);
+    if (this.filename && this.line >= 0)
+      funcPart += `<span class="preview-filename"><span class="dim"> ~ </span><span class="dim">${this.shortFileName()}:${this.line}</span></span>`;
+    return `${funcPart}`;
   }
 
   replaceArgTypes(arg) {
