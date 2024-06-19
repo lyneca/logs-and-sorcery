@@ -802,6 +802,10 @@ class Game {
   }
 
   findOrCreateMod(name, folder) {
+    if (name === undefined) {
+    console.log(`Finding/adding mod ${name}`)
+    console.trace();
+    }
     let {found, score, reason} = this.findModByName(name) ?? this.findModByFolder(folder);
     if (found) {
       if (folder && found.name == found.folder)
@@ -1340,6 +1344,7 @@ class Mod {
 
   async complete() {
     let start = Date.now();
+    console.log(this);
     this.name = this.name.split(/\\/)[0].replace(/[\d-]+$/, "");
     this.invalidPaths = Array.from(new Set(this.invalidPaths)).map((item) => {
       return {
@@ -2238,7 +2243,7 @@ async function parse(file) {
         // Match old (< U12.3) mod detection
         if (match(
           line,
-          /Added valid mod folder: (?<folder>.+). Mod: (?<mod>.+)/,
+          /Added valid mod folder: (?<folder>.+). Mod: (?<mod>.+)$/,
           ({ folder, mod }) => {
             game.findOrCreateMod(mod, folder);
           }
@@ -2251,7 +2256,7 @@ async function parse(file) {
           /\[ModManager\]\[Assembly\]((\[(?<mod>.+?)\])| -) Loading [Aa]ssembly: ?(?<path>([^\\]+\\)+)(?<dll>.+\.dll)/,
           ({ mod, path, dll }) => {
             let folder = path.split("\\")[0];
-            let {found} = game.findOrCreateMod(mod, folder);
+            let {found} = game.findOrCreateMod(mod ?? folder, folder);
             found?.assemblies.push({
               path: path.replace(/\\$/, "").replace(/\\/, "/"),
               dll: dll,
