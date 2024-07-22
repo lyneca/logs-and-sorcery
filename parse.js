@@ -782,6 +782,7 @@ class Game {
     this.mods = [];
     this.areas = [];
     this.missingDamagers = {};
+    this.missingItemData = {};
     this.inventories = {};
     this.lastLevel = "";
     this.baseGame = null;
@@ -1003,6 +1004,11 @@ class Game {
         this.selector("Missing Damagers", this.renderMissingDamagers, Object.values(this.missingDamagers).reduce((acc, group) => acc + Array.from(group).length, 0))
       );
     }
+    if (Object.keys(this.missingItemData).length > 0) {
+      containers.mods.appendChild(
+        this.selector("Missing Item Parts", this.renderMissingItemData, this.getMissingItemDataList().length, 0)
+      );
+    }
     if (this.loadErrors.length > 0) {
       containers.mods.appendChild(
         this.selector("Unknown Load Errors", this.renderLoadErrors, this.loadErrors.length)
@@ -1122,6 +1128,12 @@ class Game {
     item = item.replace(/ *\(Clone\)/, "");
     game.missingDamagers[item] ??= new Set();
     game.missingDamagers[item].add(group)
+  }
+
+  addMissingItemData(item, transform, type) {
+    game.missingItemData[item] ??= {}
+    game.missingItemData[item][type] ??= [];
+    game.missingItemData[item][type].push(transform);
   }
 
   addSkillList(list) {
@@ -1259,6 +1271,24 @@ class Game {
         return groups.map(group => { return { id: code(id), group: code(group) } })
       }).reduce((acc, x) => [...acc, ...x], [])),
       "The game attempted to damage a creature with the ColliderGroups below, but was unable to find a damager for them."
+    );
+  }
+
+  getMissingItemDataList() {
+    let list = [];
+    for (let [item, value] of Object.entries(this.missingItemData)) {
+      for (let [type, transform_name] of Object.entries(value)) {
+        list.push({item, type, transform_name})
+      }
+    }
+    return list;
+  }
+
+  async renderMissingItemData() {
+    return wrapDetails(
+      "Missing Item Parts",
+      objectListToTable(this.getMissingItemDataList()),
+      "One or more weapons couldn't find data for parts of its prefab (Damagers and Handles/Interactables)."
     );
   }
 
@@ -2635,6 +2665,22 @@ async function parse(file) {
           /Tried to damage with ColliderGroup \[(?<item>.+?) \(ThunderRoad.Item\)\\(?<group>.+?) \(ThunderRoad.ColliderGroup\)\\(?<collider>.+?) \(UnityEngine.+?Collider\)\] but no damagers were found!/,
           (groups) => {
             game.addMissingDamager(groups.item, groups.group, groups.collider);
+          }
+        )) return;
+
+        // Match missing data
+        if (match(
+          line,
+          /Interactable '(?<interactable>.+?)' on item (?<item>.+?) did not load any InteracableData!/,
+          ({interactable, item}) => {
+            game.addMissingItemData(item, interactable, "Interactable");
+          }
+        )) return;
+        if (match(
+          line,
+          /Damager '(?<damager>.+?)' on item (?<item>.+?) did not load any DamagerData!/,
+          ({damager, item}) => {
+            game.addMissingItemData(item, damager, "Damager");
           }
         )) return;
 
