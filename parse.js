@@ -1277,8 +1277,9 @@ class Game {
   getMissingItemDataList() {
     let list = [];
     for (let [item, value] of Object.entries(this.missingItemData)) {
-      for (let [type, transform_name] of Object.entries(value)) {
-        list.push({item, type, transform_name})
+      for (let [type, data] of Object.entries(value)) {
+        for (let transform_name of data)
+          list.push({item, type, transform_name})
       }
     }
     return list;
@@ -2671,7 +2672,7 @@ async function parse(file) {
         // Match missing data
         if (match(
           line,
-          /Interactable '(?<interactable>.+?)' on item (?<item>.+?) did not load any InteracableData!/,
+          /Interactable '(?<interactable>.+?)' on item (?<item>.+?) did not load any InteractableData!/,
           ({interactable, item}) => {
             game.addMissingItemData(item, interactable, "Interactable");
           }
