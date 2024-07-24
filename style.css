@@ -891,6 +891,10 @@ code.padded {
     background-color: var(--faded_blue);
 }
 
+.color-bladedancer {
+    background-color: var(--faded_aqua);
+}
+
 .color-text-info { color: var(--neutral_blue)}
 .color-text-warn { color: var(--warning)}
 .color-text-error { color: var(--neutral_red)}

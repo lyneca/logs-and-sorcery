@@ -2719,6 +2719,16 @@ async function parse(file) {
           });
         })) return;
 
+        // Match Bladedancer stuff
+        if (match(line, /\[Bladedancer\] Clearing custom blade and saving/, () => {
+          game.addEvent(`Cleared Bladedancer custom weapon`, undefined, undefined, "color-bladedancer")
+        })) return;
+
+        // Match Bladedancer stuff
+        if (match(line, /\[Bladedancer\] Setting custom blade to (?<item>.+)/, ({item}) => {
+          game.addEvent(`Set Bladedancer weapon to <code>${item}</code>`, undefined, { item }, "color-bladedancer")
+        })) return;
+
         // Match inventory events
         if (match(
           line,
