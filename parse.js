@@ -38,6 +38,8 @@ const IGNORED_PREVIEW = [
   /^System\./,
 ]
 
+const COMMON_PIRATED_VERSIONS = /0.12.[012]|1.0.[012]/;
+
 const IGNORED_TIMINGS = /Rendered \d+ reflection probes/;
 
 const TAG_ICONS = {
@@ -910,7 +912,7 @@ class Game {
     if (this.system.platform === "pirated") {
       this.system.platform =
         icon("warning", undefined, "color-warning") + "Pirated";
-
+      this.addSuggestion("pirated");
     }
     if (this.system.platform === null) {
       this.system.platform =
@@ -2882,7 +2884,7 @@ function matchSystemInfo(line) {
   })) return true;
   if (match(line, /^Game version: (?<version>.+)/, (groups) => {
     game.system.version = groups.version;
-    if (game.system.version.startsWith("0.12.2"))
+    if (game.system.version.match(COMMON_PIRATED_VERSIONS))
       game.system.platform = "pirated";
   })) return true;
   if (match(line, /^Initialize engine version: (?<version>.+) \(.+\)/, (groups) => {
