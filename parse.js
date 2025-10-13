@@ -38,7 +38,7 @@ const IGNORED_PREVIEW = [
   /^System\./,
 ]
 
-const COMMON_PIRATED_VERSIONS = /0.12.[012]|1.0.[012]/;
+const COMMON_PIRATED_VERSIONS = /^(0.12.[012]|1.0.[012])/;
 
 const IGNORED_TIMINGS = /Rendered \d+ reflection probes/;
 
@@ -806,8 +806,6 @@ class Game {
 
   findOrCreateMod(name, folder) {
     if (name === undefined) {
-    console.log(`Finding/adding mod ${name}`)
-    console.trace();
     }
     let {found, score, reason} = this.findModByName(name) ?? this.findModByFolder(folder);
     if (found) {
@@ -1017,6 +1015,7 @@ class Game {
       );
     }
 
+    console.log(this);
     setStatus(`Matching ${this.missingData.length} missing data entries with mods`)
     for (let data of this.missingData) {
       let {mod, score, reason} = game.findModByData(data.id, data.address) ?? []
@@ -1377,7 +1376,6 @@ class Mod {
 
   async complete() {
     let start = Date.now();
-    console.log(this);
     this.name = this.name.split(/\\/)[0].replace(/[\d-]+$/, "");
     this.invalidPaths = Array.from(new Set(this.invalidPaths)).map((item) => {
       return {
@@ -2868,6 +2866,7 @@ function matchSystemInfo(line) {
     game.system.platform ??= "Steam";
   })) return true;
   if (match(line, /^Mono path\[0\] = '.+(Downloads|Desktop).*\\steamapps\\common.+/i, () => {
+    console.log("1");
     game.system.platform = "pirated";
   })) return true;
   if (match(line, /^Successfully loaded content catalog at path (?<path>.+)'$/, (groups) => {
@@ -2880,12 +2879,15 @@ function matchSystemInfo(line) {
     game.system.platform ??= "Steam";
   })) return true;
   if (match(line, /^Successfully loaded content catalog at path .+(Downloads|Desktop).*\\steamapps\\common.+/i, () => {
+    console.log("2");
     game.system.platform = "pirated";
   })) return true;
   if (match(line, /^Game version: (?<version>.+)/, (groups) => {
     game.system.version = groups.version;
-    if (game.system.version.match(COMMON_PIRATED_VERSIONS))
+    if (game.system.version.match(COMMON_PIRATED_VERSIONS)) {
+      console.log("3");
       game.system.platform = "pirated";
+    }
   })) return true;
   if (match(line, /^Initialize engine version: (?<version>.+) \(.+\)/, (groups) => {
     game.system.unity_version = groups.version;
