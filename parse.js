@@ -2578,7 +2578,7 @@ async function parse(file) {
               "color-level"
             );
 
-            game.lastEvent.params = { level: level, gamemode: mode }
+            game.lastEvent.params = { level: level, levelmode: mode }
             game.lastEvent.buttons.push({
               title: "Copy Args",
               action: "copyLevelArgs",
