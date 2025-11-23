@@ -746,7 +746,7 @@ function copyLevelArgs(event, params) {
     .map(([key, value]) =>
       key == "InstanceGuid"
       ? null
-      : key == "level" || key == "gamemode"
+      : key == "level" || key == "levelmode" || key == "gamemode"
       ? `-${key} ${value}`
       : `-leveloption ${key}=${value}`
     )
