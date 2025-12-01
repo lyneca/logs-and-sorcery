@@ -261,6 +261,7 @@ const fileClickInput = document.getElementById("file-click-input");
 const statusDiv = document.getElementById("status")
 const progressBar = document.getElementById("progress-bar")
 const codeInput = document.querySelector("#code-entry");
+codeInput.value = "";
 
 if (fileInput) {
   fileInput.addEventListener("dragenter", (_) => {
@@ -380,19 +381,25 @@ function renderFunc(stringOrFunc) {
   return stringOrFunc;
 }
 
+let downloadUrl = "";
+let currentCode = "";
+
 let lastCodeLength = 0;
 async function onCodeEntry(evt) {
   evt.preventDefault();
   evt.stopPropagation();
+  evt.target.value = evt.target.value.toUpperCase();
   let code = evt.target.value;
   if (lastCodeLength == code.length) return;
   lastCodeLength = code.length;
   if (code.length == 6) {
+    currentCode = code;
     hideTopBars();
     setStatus(`Finding log ${code}`)
     setProgress(0, true);
     getDownloadURL(ref(storage, code + ".log"))
       .then(url => {
+        downloadUrl = url;
         setStatus(`Downloading log ${code}`)
         setProgress(10);
         let xhr = new XMLHttpRequest();
@@ -411,6 +418,15 @@ async function onCodeEntry(evt) {
         xhr.send()
       });
   }
+}
+
+function downloadLog() {
+  const link = document.createElement('a');
+  link.href = downloadUrl;
+  link.download = `Player-${currentCode}.log`; // Specifies the filename for the download
+  document.body.appendChild(link); // Append to DOM (can be hidden)
+  link.click(); // Programmatically click the link
+  document.body.removeChild(link); // Remove from DOM after click
 }
 
 function hideTopBars() {
@@ -1017,6 +1033,8 @@ class Game {
       this.system.start_time = new Date(year, month, day, hour, minute, second, ms).toString();
     }
     containers.mods?.replaceChildren([]);
+    if (downloadUrl)
+      containers.mods?.appendChild(this.selector("Download File", downloadLog));
     containers.mods?.appendChild(this.selector("System Info", this.renderGameInfo));
     this.maxCount =
       this.exceptions.length +

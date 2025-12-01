@@ -118,6 +118,10 @@ li {
   letter-spacing: 5px;
 }
 
+#selector-download-file {
+  background-color: var(--faded_blue);
+}
+
 .dragging {
     border-color: var(--fg) !important;
 }
