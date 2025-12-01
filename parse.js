@@ -1,4 +1,28 @@
-// https://coolors.co/333344-45cb85-ff4f79-1e91d6-f4ac45
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/12.6.0/firebase-app.js'
+
+// If you enabled Analytics in your project, add the Firebase SDK for Google Analytics
+import { getAnalytics } from 'https://www.gstatic.com/firebasejs/12.6.0/firebase-analytics.js'
+
+// Add Firebase products that you want to use
+import { getAuth } from 'https://www.gstatic.com/firebasejs/12.6.0/firebase-auth.js'
+import { getStorage, ref, getDownloadURL } from 'https://www.gstatic.com/firebasejs/12.6.0/firebase-storage.js'
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCWX7zG_L0qdH9vlUuG_48_An-Rm-hgE9Y",
+  authDomain: "logs-and-sorcery.firebaseapp.com",
+  projectId: "logs-and-sorcery",
+  storageBucket: "logs-and-sorcery.firebasestorage.app",
+  messagingSenderId: "848725666420",
+  appId: "1:848725666420:web:c85449e2be51c27a8cbf21",
+  measurementId: "G-LS12XR5C8C"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+const storage = getStorage(app);
 
 const VERSION = "2.3.4";
 
@@ -236,6 +260,7 @@ const fileInput = document.querySelector("#file-input");
 const fileClickInput = document.getElementById("file-click-input");
 const statusDiv = document.getElementById("status")
 const progressBar = document.getElementById("progress-bar")
+const codeInput = document.querySelector("#code-entry");
 
 if (fileInput) {
   fileInput.addEventListener("dragenter", (_) => {
@@ -261,6 +286,10 @@ if (fileInput) {
   fileClickInput.addEventListener("change", async (e) => {
     await loadFile(e.target.files[0]);
   });
+}
+
+if (codeInput) {
+  codeInput.addEventListener("input", onCodeEntry);
 }
 
 var lastBreak = Date.now()
@@ -351,20 +380,57 @@ function renderFunc(stringOrFunc) {
   return stringOrFunc;
 }
 
+let lastCodeLength = 0;
+async function onCodeEntry(evt) {
+  evt.preventDefault();
+  evt.stopPropagation();
+  let code = evt.target.value;
+  if (lastCodeLength == code.length) return;
+  lastCodeLength = code.length;
+  if (code.length == 6) {
+    hideTopBars();
+    setStatus(`Finding log ${code}`)
+    setProgress(0, true);
+    getDownloadURL(ref(storage, code + ".log"))
+      .then(url => {
+        setStatus(`Downloading log ${code}`)
+        setProgress(10);
+        let xhr = new XMLHttpRequest();
+        xhr.responseType = 'blob';
+        xhr.onload = async (event) => {
+          let blob = xhr.response;
+          await loadFile(blob);
+        };
+        xhr.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percentComplete = (event.loaded / event.total) * 90 + 10;
+            setProgress(percentComplete)
+          }
+        };
+        xhr.open('GET', url);
+        xhr.send()
+      });
+  }
+}
+
+function hideTopBars() {
+  document.querySelector(".help").style.opacity = 0;
+  setTimeout(() => {
+    document.querySelector(".tohide").style.maxHeight = 0;
+    document.querySelector(".tohide").style.marginBottom = 0;
+    document.querySelector("main").style.maxWidth = "100vw";
+    // document.querySelector("h1").style.display = "none";
+    // document.querySelector("#file-input").style.display = "none";
+  }, 200);
+  setTimeout(() => {
+    document.querySelector(".tohide").style.display = "none";
+  });
+}
+
 async function loadFile(file) {
   startTime = Date.now();
   cleanup();
-  document.querySelector(".help").style.opacity = 0;
-  setTimeout(() => {
-    document.querySelector(".help").style.maxHeight = 0;
-    document.querySelector(".help").style.marginBottom = 0;
-    document.querySelector("main").style.maxWidth = "100vw";
-    document.querySelector("h1").style.display = "none";
-    document.querySelector("#file-input").style.display = "none";
-  }, 200);
-  setTimeout(() => {
-    document.querySelector(".help").style.display = "none";
-  });
+  hideTopBars();
   setProgress(0, true);
   let totalTimeStart = parseStart = Date.now();
   setStatus("Parsing log lines")

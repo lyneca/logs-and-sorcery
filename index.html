@@ -1,11 +1,11 @@
 <!DOCTYPE html>
 <html>
 
-<head>
+  <head>
     <!-- Responsive -->
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, minimal-ui">
-    
+
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
 
     <!-- Title -->
@@ -23,7 +23,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fira+Code&family=Ubuntu+Sans&family=Open+Sans&family=Nova+Cut&family=Roboto&display=swap"
-        rel="stylesheet">
+          rel="stylesheet">
     <link rel="stylesheet" href="gruvbox.css">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="hint.css">
@@ -35,49 +35,61 @@
     <script src=" https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js "></script>
     <script type="text/javascript" src="imurmurhash.min.js"></script>
     <script>
-        window.dataLayer = window.dataLayer || [];
-        function gtag() { dataLayer.push(arguments); }
-        gtag('js', new Date());
-        gtag('config', 'G-NNSE7T1WQY');
+      window.dataLayer = window.dataLayer || [];
+      function gtag() { dataLayer.push(arguments); }
+      gtag('js', new Date());
+      gtag('config', 'G-NNSE7T1WQY');
     </script>
-</head>
+  </head>
 
-<body>
+  <body>
     <input type="file" id="file-click-input" style="position:fixed;top:-1000px"></input>
     <main>
-        <h1>Logs &amp; Sorcery</h1>
+      <h1>Logs &amp; Sorcery</h1>
+      <div class="tohide">
         <div id="file-input">DROP LOG FILE HERE</div>
+        <div id="input-separator">
+          <div class="hsep"></div>
+          <h2>OR</h2>
+          <div class="hsep"></div>
+        </div>
+        <div class="pad"><p><em>Enter your Log Code from the <a href="">Logs &amp; Sorcery</a> mod:</em></p></div>
+        <input placeholder="LOGCODE" type="text" id="code-entry" maxlength=6>
+        <div class="hsep"></div>
         <div class="help">
-            <p>Your log file can be found here - type this into Windows Explorer:</p>
-            <pre>%userprofile%/AppData/LocalLow/WarpFrog/BladeAndSorcery</pre>
-            <p>Go to that folder in your file explorer, and drag the file <code class="padded">Player.log</code> into the box above.</p>
-            <p><em>Note: Log files are overwritten every time you run the game. Log files greater than 5MB may take a while to process.</em></p>
-            <p>Once loaded, read the <strong>Suggestion</strong> tab first - it contains any quick-fixes that could be found.</p>
-            <p><strong>You too can help out!</strong> If you find a bug or have a feature request, please message me in my <a href="https://discord.gg/lyneca">Discord server!</a></p>
+          <p>Your log file can be found here - type this into Windows Explorer:</p>
+          <pre>%userprofile%/AppData/LocalLow/WarpFrog/BladeAndSorcery</pre>
+          <p>Go to that folder in your file explorer, and drag the file <code class="padded">Player.log</code> into the box above.</p>
+          <p><em>Note: Log files are overwritten every time you run the game. Log files greater than 5MB may take a while to process.</em></p>
+          <p>Once loaded, read the <strong>Suggestion</strong> tab first - it contains any quick-fixes that could be found.</p>
+          <p><strong>You too can help out!</strong> If you find a bug or have a feature request, please message me in my <a href="https://discord.gg/lyneca">Discord server!</a></p>
         </div>
-        <div class="italic" id="status">Waiting for file...</div>
-            <div class="explanation" style="display: none;">
-                <span style="width: 50%;">READ</span>
-                <div class="vsep"></div>
-                <span style="width: 30%;">PROCESS</span>
-                <div class="vsep"></div>
-                <span style="width: 10%;">SORT</span>
-                <div class="vsep"></div>
-                <span style="width: 10%;">RENDER</span>
-            </div>
-        <div class="progress">
-            <div class="progress-bar" id="progress-bar"></div>
-        </div>
-        <section class="analysis">
-            <div id="mod-list">
+      </div>
+      <div class="italic" id="status">Waiting for file...</div>
+      <div class="explanation" style="display: none;">
+        <span style="width: 50%;">READ</span>
+        <div class="vsep"></div>
+        <span style="width: 30%;">PROCESS</span>
+        <div class="vsep"></div>
+        <span style="width: 10%;">SORT</span>
+        <div class="vsep"></div>
+        <span style="width: 10%;">RENDER</span>
+      </div>
+      <div class="progress">
+        <div class="progress-bar" id="progress-bar"></div>
+      </div>
+      <section class="analysis">
+        <div id="mod-list">
 
-            </div>
-            <div class="vsep"></div>
-            <div id="mod-details">
-            </div>
-        </section>
+        </div>
+        <div class="vsep"></div>
+        <div id="mod-details">
+        </div>
+      </section>
     </main>
-    <script src="parse.js"></script>
-</body>
+    <script type="module">
+    </script>
+    <script type="module" src="parse.js"></script>
+  </body>
 
 </html>
