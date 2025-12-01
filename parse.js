@@ -350,10 +350,10 @@ function hideStatus() {
   if (!statusDiv) return;
   statusDiv.style.display = "none";
 }
-function setStatus(text) {
+function setStatus(text, skipEllipsis) {
   if (!statusDiv) return;
   statusDiv.style.display = "block";
-  statusDiv.innerText = text + (text.endsWith('%') ? '' : "...");
+  statusDiv.innerText = text + ((skipEllipsis || text.endsWith('%')) ? '' : "...");
 }
 
 let isSmooth = true;
@@ -416,6 +416,10 @@ async function onCodeEntry(evt) {
         };
         xhr.open('GET', url);
         xhr.send()
+      })
+      .catch(() => {
+        setStatus(`Could not find log file with code ${code}.`, true);
+        setProgress(100);
       });
   }
 }
