@@ -519,7 +519,7 @@ function renderValue(value) {
   return value;
 }
 
-function expandException(elem) {
+export function expandException(elem) {
   let error = elem.querySelector(".expand");
   if (error == null) return;
   if (!error.classList.contains("event-hidden")) {
@@ -529,7 +529,7 @@ function expandException(elem) {
   }
 }
 
-async function clickButton(id, doProgress = true) {
+export async function clickButton(id, doProgress = true) {
   if (isClicking) return;
   startTime = Date.now();
   containers.details.replaceChildren();
@@ -672,7 +672,7 @@ async function updateSearch(container, search) {
   setProgress(100);
 }
 
-function screenshot(event, element, title) {
+export function screenshot(event, element, title) {
   event.preventDefault();
   event.stopPropagation();
   if (element.querySelector(".event-hidden")) {
@@ -819,7 +819,7 @@ function foundMod(found, score, reason) {
   return {found, score, reason};
 }
 
-function copyLevelArgs(event, params) {
+export function copyLevelArgs(event, params) {
   event.stopPropagation();
   if (!params) return;
   let target = event.target;
@@ -3008,3 +3008,10 @@ function matchSystemInfo(line) {
   })) return true;
   return false;
 }
+
+window.expandException = expandException;
+window.clickButton = clickButton;
+window.screenshot = screenshot;
+window.copyLevelArgs = copyLevelArgs;
+
+
