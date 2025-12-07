@@ -888,6 +888,7 @@ class Game {
     this.lastEvent = null;
     this.lastSeed = 0;
     this.lastException = null;
+    this.modManagerMods = [];
   }
 
   findOrCreateMod(name, folder) {
@@ -951,6 +952,7 @@ class Game {
       this.updateModFinder();
     let search = game.modFinder.search(mod);
     if (search.length > 0) {
+      console.log(`fuzzy matched mod ${search[0].item.name}: ${search[0].score} from ${mod}`);
       return foundMod(search[0].item, search[0].score, "fuzzy");
     }
     return foundMod();
@@ -988,6 +990,7 @@ class Game {
       keys: ["assemblies", "name", "folder", "author"],
       includeScore: true,
       useExtendedSearch: true,
+      minMatchCharLength: 2
     });
   }
 
@@ -1020,6 +1023,7 @@ class Game {
         keys: ["authorFolder", "author", "folder", "name"],
         includeScore: true,
         useExtendedSearch: true,
+        minMatchCharLength: true
       }
     );
   }
@@ -1546,14 +1550,14 @@ class Mod {
         author: this.author,
         folder: code(this.folder),
         namespaces: Array.from(this.namespaces)
-        .map((namespace) => code(namespace))
-        .join(", "),
+          .map((namespace) => code(namespace))
+          .join(", "),
         assemblies: this.assemblies
-        .map((assembly) => code(assembly.dll))
-        .join(", "),
+          .map((assembly) => code(assembly.dll))
+          .join(", "),
         catalogs: this.catalogs
-        .map((catalog) => code(catalog.catalog))
-        .join(", "),
+          .map((catalog) => code(catalog.catalog))
+          .join(", "),
         tags: [...this.tags].join(", "),
         thunderscripts: this.thunderscripts.map(({namespace, class_name}) => namespace + "." + class_name).join(", "),
         mod_options: this.modOptions
@@ -2353,6 +2357,7 @@ async function parse(file) {
         break;
       case "default":
         if (matchSystemInfo(line)) return;
+        // if (matchModManager(line)) return;
 
         // Match load time events for pie chart
         match(line, /(-+> ?)?(\[(?<category>\w+)\] )?(?<process>.+) in (?<time>[\d\.]+) sec/, ({category, process, time}) =>
@@ -3005,6 +3010,14 @@ function matchSystemInfo(line) {
   })) return true;
   if (match(line, /^Platform \[Android\] initialized/, () => {
     game.system.platform ??= "Nomad";
+  })) return true;
+  return false;
+}
+
+function matchModManager(line) {
+  if (match(line, /^\[ModManagerUI\] Download for (?<mod>.+) started.$/, ({mod}) => {
+    console.log(`https://mod.io/g/blade-and-sorcery/m/${mod}`);
+    game.addEvent(`Downloading Mod`, "", {id: mod, link: `https://mod.io/g/blade-and-sorcery/m/${mod}`}, "color-mod-manager");
   })) return true;
   return false;
 }

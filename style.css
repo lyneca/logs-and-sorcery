@@ -914,6 +914,10 @@ code.padded {
     background-color: var(--neutral_blue);
 }
 
+.color-mod-manager {
+    background-color: var(--bright_aqua);
+}
+
 .color-skills {
     background-color: var(--neutral_aqua);
 }
