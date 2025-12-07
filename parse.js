@@ -38,7 +38,7 @@ const PROGRESS_SORT = 10;
 const LOG_REGEX =
   /^(.+?\|.+?\|)?(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})T(?<hour>\d{2}):(?<minute>\d{2}):(?<second>\d{2}).(?<ms>\d+) +(?<level>[A-Z]+)( .+?: )/;
 const XML_REGEX = /\r?<\\*color.*?>/g;
-const UNMODDED_REGEX = /^(ThunderRoad|Unity|DelegateList|RainyReignGames|ONSPAudioSource|SteamVR|OVR|OculusVR|System|StateTracker|\(wrapper|Valve|delegate|MonoBehaviourCallbackHooks|Newtonsoft|TMPro|UsingTheirs|FadeMixerGroup|Shadowood)/;
+const UNMODDED_REGEX = /^\s*(ThunderRoad|Unity|DelegateList|RainyReignGames|ONSPAudioSource|SteamVR|OVR|OculusVR|System|StateTracker|\(wrapper|Valve|delegate|MonoBehaviourCallbackHooks|Newtonsoft|TMPro|UsingTheirs|FadeMixerGroup|Shadowood)/;
 
 const IGNORED_ARGS = [
   "Newtonsoft.",
@@ -952,7 +952,6 @@ class Game {
       this.updateModFinder();
     let search = game.modFinder.search(mod);
     if (search.length > 0) {
-      console.log(`fuzzy matched mod ${search[0].item.name}: ${search[0].score} from ${mod}`);
       return foundMod(search[0].item, search[0].score, "fuzzy");
     }
     return foundMod();
@@ -1663,6 +1662,12 @@ class Exception {
 
     let foundMod = false;
     let bestMod;
+
+    if (this.mods.size > 1) this.mods.delete("Base Game");
+    if (this.type == "InvalidOperationException") {
+      console.log(this.error);
+      console.log(this.mods);
+    }
 
     if (this.type == "RemoteProviderException") {
       // RemoteProviderException : Invalid path in AssetBundleProvider: 'D:/SteamLibrary/steamapps/common/Blade & Sorcery/BladeAndSorcery_Data/StreamingAssets\Mods/InvertedSpear/invertedspearofheavenformini_assets_all.bundle'.
@@ -2959,7 +2964,6 @@ function matchSystemInfo(line) {
     game.system.platform ??= "Steam";
   })) return true;
   if (match(line, /^Mono path\[0\] = '.+(Downloads|Desktop).*\\steamapps\\common.+/i, () => {
-    console.log("1");
     game.system.platform = "pirated";
   })) return true;
   if (match(line, /^Successfully loaded content catalog at path (?<path>.+)'$/, (groups) => {
@@ -2972,13 +2976,11 @@ function matchSystemInfo(line) {
     game.system.platform ??= "Steam";
   })) return true;
   if (match(line, /^Successfully loaded content catalog at path .+(Downloads|Desktop).*\\steamapps\\common.+/i, () => {
-    console.log("2");
     game.system.platform = "pirated";
   })) return true;
   if (match(line, /^Game version: (?<version>.+)/, (groups) => {
     game.system.version = groups.version;
     if (game.system.version.match(COMMON_PIRATED_VERSIONS)) {
-      console.log("3");
       game.system.platform = "pirated";
     }
   })) return true;
