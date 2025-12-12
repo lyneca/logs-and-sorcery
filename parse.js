@@ -2253,6 +2253,7 @@ async function parse(file) {
   let prev = "";
   let nextPrev = "";
   let skills = [];
+  let blade = {}
 
   let rows = setupProgressDisplay();
   containers.details.innerHTML = objectToTable(rows, "Progress", true);
@@ -2296,26 +2297,37 @@ async function parse(file) {
     }
     setProgress((index / size) * PROGRESS_READ);
 
-    // determine state changes
-    if (state == "exception") {
-      if (
-        match(line, /Parameter name: (?<parameter>.+)/, (groups) => {
-          if (exception)
-            exception.error +=
-              " Parameter: " + `<code>${groups.parameter}</code>`;
-        })
-      ) {
-      } else if (!line.match(/^(  at |Rethrow as |You probably need to assign the .+ variable of the .+ script in the inspector.)/)) {
-        // if line is not an exception, save it and reset to default:
-        if (exception != null) {
-          game.addException(exception);
-          exception = null;
-        }
-        state = "default";
-      }
-    }
 
-    if (state == "system-info" && !match(line, /^\[.+?\]\s*:/)) state = "default";
+    // determine state changes
+    switch (state) {
+      case "exception":
+        if (
+          match(line, /Parameter name: (?<parameter>.+)/, (groups) => {
+            if (exception)
+              exception.error +=
+                " Parameter: " + `<code>${groups.parameter}</code>`;
+          })
+        ) {
+        } else if (!line.match(/^(  at |Rethrow as |You probably need to assign the .+ variable of the .+ script in the inspector.)/)) {
+          // if line is not an exception, save it and reset to default:
+          if (exception != null) {
+            game.addException(exception);
+            exception = null;
+          }
+          state = "default";
+        }
+        break;
+      case "bd-invalid-blade":
+        if (!match(line, /(\[Bladedancer\] (ALL|My |Here )|- )/)) {
+          console.log("exiting bd state:");
+          console.log(line);
+          state = "default";
+        }
+        break;
+      case "system-info":
+        if (!match(line, /^\[.+?\]\s*:/)) state = "default";
+        break;
+    }
 
     if (
       match(
@@ -2827,6 +2839,11 @@ async function parse(file) {
           game.addEvent(`Set Bladedancer weapon to <code>${item}</code>`, undefined, { item }, "color-bladedancer")
         })) return;
 
+        if (match(line, /\[Bladedancer\] WARNING: Blade (?<blade_name>\w+) \(Bladedancer.Blade\) no longer valid! .+/, ({blade}) => {
+          state = "bd-invalid-blade"
+          blade = { name: blade };
+        })) return;
+
         // Match inventory events
         if (match(
           line,
@@ -2937,6 +2954,53 @@ async function parse(file) {
           }
         );
         break;
+      case "bd-invalid-blade":
+        if (match(line, /- (?<key>.+?): (?<value>.+)/, ({key, value}) => {
+          if (match(line, /!float.Is(?<check>\w+)\(.+position\.(?<coordinate>.)\)/, ({check, coordinate}) => {
+            blade[`Position ${coordinate} is not ${check}`] = value;
+          })) return;
+
+          if (match(line, /\(bool\)(?<object>.+):/, ({object}) => {
+            blade[`${object} is not null`] = value;
+          })) return;
+
+          blade[key] = value;
+        })) return;
+        if (match(line, /\[Bladedancer\] My MoveTarget is (?<target>.*)\.$/, ({target}) => {
+          blade.target = target;
+        })) return;
+        if (match(line, /\[Bladedancer\] My position is \((?<position>.+?)\) and my rotation is \((?<rotation>.+?)\)/, ({position, rotation}) => {
+          blade.position = position;
+          blade.rotation = rotation;
+        })) return;
+        if (match(line, /\[Bladedancer\] My velocity is \((?<velocity>.+?)\)/, ({velocity}) => {
+          blade.velocity = velocity;
+        })) return;
+        if (match(line, /\[Bladedancer\] Here are the components on me: (?<components>.+)/, ({components}) => {
+          blade.components = components.split(", ");
+          game.addEvent("Bladedancer found an invalid blade.", "", blade, "color-error");
+          console.log(blade);
+          state = "default";
+        })) return;
+        break;
+// [Bladedancer] WARNING: Blade Pool_ThrowablesDagger_1309 (Bladedancer.Blade) no longer valid! See following logs for diagnosis.
+// [Bladedancer] ALL of the following need to be true:
+// [Bladedancer] - (bool)item: True
+// - item.loaded: True
+// - item.isUsed: True
+// - (bool)item.transform: True
+// - !float.IsNaN(item.transform.position.x): True
+// - !float.IsNaN(item.transform.position.y): True
+// - !float.IsNaN(item.transform.position.z): True
+// - !float.IsInfinity(item.transform.position.x): True
+// - !float.IsInfinity(item.transform.position.y): True
+// - !float.IsInfinity(item.transform.position.z): True
+// - (item.transform.position - Player.local.transform.position).sqrMagnitude < 500 * 500: False
+// [Bladedancer] My movetarget is .
+// [Bladedancer] My position is (-333.44, -4950.40, 2768.58) and my rotation is (-0.11947, -0.48801, 0.59315, 0.62908)
+// [Bladedancer] My velocity is (0.00, -24.46, 0.00)
+// [Bladedancer] Here are the components on me: Transform, Rigidbody, Item, LightVolumeReceiver, AudioSource, AudioSource, CollisionHandler, CleanseItemBehaviour, Blade
+
     }
   }
 
