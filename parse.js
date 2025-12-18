@@ -141,6 +141,12 @@ const SUGGESTIONS = {
     `You can paste your JSON file into <a href="https://jsonlint.com/">jsonlint.com</a> to debug syntax errors.`,
     cols: ["mod", "json_file", "error"]
   },
+  "low-memory": {
+    title: "Free up your RAM",
+    description: "The game ran out of available memory. This could be due to a mod, but it's more likely that you had too many things running on your system. Try closing other apps (browsers, Discord etc) while playing."
+    + "<br><br>"
+    + "We recommend having at least 16GB total RAM for Blade and Sorcery."
+  },
   pirated: {
     title:
     icon("warning") +
@@ -720,6 +726,11 @@ function icon(name, tooltip, color) {
 function hr() {
   return '<div class="hsep"></div>';
 }
+
+function byteify(bytes) {
+  return bytes > 1000 ? Math.round(bytes / 1000) + " MB" : bytes + " B";
+}
+
 
 let createHR = () => createDiv("hsep");
 
@@ -2319,13 +2330,16 @@ async function parse(file) {
         break;
       case "bd-invalid-blade":
         if (!match(line, /(\[Bladedancer\] (ALL|My |Here )|- )/)) {
-          console.log("exiting bd state:");
-          console.log(line);
           state = "default";
         }
         break;
       case "system-info":
         if (!match(line, /^\[.+?\]\s*:/)) state = "default";
+        break;
+      case "oom":
+        if (line && !match(line, /^(\[|Allocation happened|Memory overview)/)) {
+          state = "default";
+        }
         break;
     }
 
@@ -2889,25 +2903,36 @@ async function parse(file) {
         if (match(line, /Could not allocate memory: System out of memory!/, () => {
           game.addEvent(
             "System out of memory!",
-            "You may either have too many other programs open, or you might not have enough RAM on your PC. It's recommended to have at least 16GB total RAM for Blade and Sorcery. If you have enough RAM, this problem has also been solved in the past by re-installing GPU drivers.",
+            "The game has crashed due to running out of memory. Check the Suggestions tab for more help.",
             undefined,
             "color-fatal"
           );
+          game.addSuggestion("low-memory");
         })) return;
 
         if (match(
           line,
           /Trying to allocate: (?<bytes>\d+)B with \d+ alignment. MemoryLabel: (?<label>.+)/,
           (groups) => {
+            state = "oom";
             if (game.lastEvent?.text == "System out of memory!") {
-              game.lastEvent.props.bytes =
-                groups.bytes > 1000
-                ? Math.round(groups.bytes / 1000) + " MB"
-                : groups.bytes + " bytes";
+              game.lastEvent.props.bytes = byteify(groups.bytes);
               game.lastEvent.props.label = groups.label;
             }
           }
         )) return;
+
+        // Match could not allocate texture
+        if (match(line, /d3d11: failed to create 3D texture id=(?<id>\d+) s=(?<size>.+?) mips=(?<mips>\d+) d3dfmt=(?<fmt>\d+) \[8007000e\]/,
+          (details) => {
+            game.addEvent(
+              "Could not allocate texture: System out of memory!",
+              "",
+              details,
+              "color-fatal"
+            );
+            game.addSuggestion("low-memory");
+        })) return;
         break;
       case "exception":
         match(
@@ -2983,24 +3008,10 @@ async function parse(file) {
           state = "default";
         })) return;
         break;
-// [Bladedancer] WARNING: Blade Pool_ThrowablesDagger_1309 (Bladedancer.Blade) no longer valid! See following logs for diagnosis.
-// [Bladedancer] ALL of the following need to be true:
-// [Bladedancer] - (bool)item: True
-// - item.loaded: True
-// - item.isUsed: True
-// - (bool)item.transform: True
-// - !float.IsNaN(item.transform.position.x): True
-// - !float.IsNaN(item.transform.position.y): True
-// - !float.IsNaN(item.transform.position.z): True
-// - !float.IsInfinity(item.transform.position.x): True
-// - !float.IsInfinity(item.transform.position.y): True
-// - !float.IsInfinity(item.transform.position.z): True
-// - (item.transform.position - Player.local.transform.position).sqrMagnitude < 500 * 500: False
-// [Bladedancer] My movetarget is .
-// [Bladedancer] My position is (-333.44, -4950.40, 2768.58) and my rotation is (-0.11947, -0.48801, 0.59315, 0.62908)
-// [Bladedancer] My velocity is (0.00, -24.46, 0.00)
-// [Bladedancer] Here are the components on me: Transform, Rigidbody, Item, LightVolumeReceiver, AudioSource, AudioSource, CollisionHandler, CleanseItemBehaviour, Blade
-
+      case "oom":
+        if (match(line, /\[ (?<name>.+?) \] used: (?<used>\d+)B \| peak: \d+B \| reserved: (?<reserved>\d+)B/, ({name, used, reserved}) => {
+          game.lastEvent.props[name] = `${byteify(used)} used / ${byteify(reserved)} reserved`;
+        })) return;
     }
   }
 
