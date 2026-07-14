@@ -900,6 +900,7 @@ class Game {
     this.lastSeed = 0;
     this.lastException = null;
     this.modManagerMods = [];
+    this.poolDestroy = [];
   }
 
   findOrCreateMod(name, folder) {
@@ -1101,6 +1102,11 @@ class Game {
         this.selector("Timings", this.renderTimings, Object.values(this.timing).reduce(reduceObjectList, 0))
       );
     }
+    if (Object.keys(this.poolDestroy).length > 0) {
+      containers.mods.appendChild(
+        this.selector("Pool Destruction", this.renderPoolDestroy, Object.keys(this.poolDestroy).length)
+      );
+    }
     if (Object.keys(this.missingDamagers).length > 0) {
       containers.mods.appendChild(
         this.selector("Missing Damagers", this.renderMissingDamagers, Object.values(this.missingDamagers).reduce((acc, group) => acc + Array.from(group).length, 0))
@@ -1193,6 +1199,15 @@ class Game {
     return event;
   }
 
+  addPoolDestroy(name, heirarchy) {
+    if (this.poolDestroy[name] === undefined) {
+      this.poolDestroy[name] = [];
+    }
+
+    if (heirarchy)
+      this.poolDestroy[name].push(heirarchy);
+  }
+
   addAreaTransition(exit, enter) {
     this.lastArea = enter;
     if (this.areas.length == 0) {
@@ -1282,6 +1297,14 @@ class Game {
 
   renderTimeBlock([key, value]) {
     return wrapDetails(key, objectToTable(value, "", false, true, ["Task", "Average Load Time", "Times Loaded"], (a, b) => (a[1].time / a[1].count) - (b[1].time / b[1].count)));
+  }
+
+  async renderPoolDestroy() {
+    return wrapDetails("", Object.entries(this.poolDestroy).map(this.renderPoolDestroyBlock).join(""), "These objects are pooled, and should not have been destroyed.");
+  }
+
+  renderPoolDestroyBlock([key, value]) {
+    return wrapDetails(key, ul(value))
   }
 
   renderTime(title, width, color) {
@@ -2888,8 +2911,10 @@ async function parse(file) {
         if (match(line, /Effect (?<name>.+) has been destroyed but it should not!/, (groups) => {
           if (!match(line, /Heirarchy: (?<heirarchy>.+)/, ({ heirarchy }) => {
             game.addEvent(`Pooled effect was destroyed.`, "", { id: groups.name, heirarchy: heirarchy }, "color-warning");
+            game.addPoolDestroy(groups.name, heirarchy);
           })) {
             game.addEvent(`Pooled effect was destroyed.`, "", { id: groups.name }, "color-warning");
+            game.addPoolDestroy(groups.name);
           }
         })) return;
 
