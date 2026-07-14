@@ -2886,7 +2886,11 @@ async function parse(file) {
 
         // Match pooled particles being destroyed
         if (match(line, /Effect (?<name>.+) has been destroyed but it should not!/, (groups) => {
-          game.addEvent(`Pooled effect was destroyed.`, "", { id: groups.name }, "color-warning");
+          if (!match(line, /Heirarchy: (?<heirarchy>.+)/, ({ heirarchy }) => {
+            game.addEvent(`Pooled effect was destroyed.`, "", { id: groups.name, heirarchy: heirarchy }, "color-warning");
+          })) {
+            game.addEvent(`Pooled effect was destroyed.`, "", { id: groups.name }, "color-warning");
+          }
         })) return;
 
         // Match hard crash
