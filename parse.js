@@ -3067,6 +3067,9 @@ function matchSystemInfo(line) {
   if (match(line, /^Mono path\[0\] = '.+\\steamapps\\common.+/i, () => {
     game.system.platform ??= "Steam";
   })) return true;
+  if (match(line, /^Validation result: False/, () => {
+    game.system.platform = "pirated";
+  })) return true;
   if (match(line, /^Mono path\[0\] = '.+(Downloads|Desktop).*\\steamapps\\common.+/i, () => {
     game.system.platform = "pirated";
   })) return true;
